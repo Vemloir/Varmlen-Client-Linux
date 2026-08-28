@@ -2,6 +2,25 @@
 
 ## 0.3.1
 
+- Show the `JSON` marker on Hysteria2 locations too. A location edited as a
+  provider profile says so whatever its transport; previously only VLESS and
+  friends carried it, so Hysteria2 locations looked like share links.
+- Reconnect no longer fails with "Xray rejected the generated configuration".
+  Xray 26.3.x creates the TUN device while it is only *testing* a configuration,
+  so validating a reconnect candidate against the interface that is still up was
+  refused as `device or resource busy` and the user had to connect twice. The
+  tun-bound syntax check is skipped while that interface is live, and the
+  end-to-end egress probe still starts a real Xray through the candidate.
+- Say what Xray actually complained about. Xray writes `Failed to start:` to
+  stdout, so a stderr-only report arrived empty for every configuration error.
+- Accept the 15 s probe budget a UDP transport needs. The daemon refused any
+  timeout above 10 s, so every Hysteria2, WireGuard, mKCP and QUIC location's
+  latency probe was rejected before it ran and the location read as unpingable.
+- Probe a location twice before declaring it dead, and report the reason the
+  probe failed instead of "HTTP ping failed through every proxy path". An older
+  daemon still answering a 24/7 tunnel gets the shorter probe it accepts instead
+  of a rejection.
+
 - Use hostname-based Cloudflare and Google DoH with static bootstrap addresses
   and parallel fallback, avoiding DNS stalls on routes that reject HTTPS to a
   bare IP while keeping every resolver connection inside the VPN.

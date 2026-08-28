@@ -394,6 +394,9 @@ pub async fn tcp_ping_host(
     }
 }
 
+/// The ping ceiling of a daemon built before UDP probes were given 15 s.
+const LEGACY_MAX_PING_TIMEOUT_MS: u32 = 10_000;
+
 #[tauri::command]
 pub async fn proxy_get_ping(
     app: tauri::AppHandle,
@@ -428,6 +431,12 @@ pub async fn proxy_get_ping(
         {
             Ok(state) => state,
             Err(crate::daemon_client::ClientError::Daemon(DaemonErrorCode::InvalidRequest, _)) => {
+                // Package upgrades deliberately do not interrupt a running
+                // tunnel, so an older daemon keeps answering until the next
+                // restart. Such a daemon rejects both the multi-path probe
+                // shape and the 15 s budget a UDP transport needs, which used to
+                // read as "Hysteria2 never pings". Fall back to its single-path
+                // config and to the ceiling it accepts.
                 let xray_config = serde_json::to_string(&crate::xray::build_legacy_ping_config(
                     &server, socks_port,
                 )?)
@@ -438,7 +447,7 @@ pub async fn proxy_get_ping(
                         socks_port,
                         socks_ports: Vec::new(),
                         dns_probe_urls,
-                        timeout_ms,
+                        timeout_ms: timeout_ms.min(LEGACY_MAX_PING_TIMEOUT_MS),
                     }))
                     .await
                     .map_err(|error| error.to_string())?

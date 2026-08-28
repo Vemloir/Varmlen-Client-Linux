@@ -58,4 +58,21 @@ describe("location protocol labels", () => {
       }),
     ).toBe("Hysteria2");
   });
+
+  it("marks a JSON-backed Hysteria location the same way as VLESS", () => {
+    const hysteria = {
+      ...base,
+      protocol: "hysteria",
+      transport: "hysteria",
+      security: "tls",
+      source_json: "{}",
+    };
+    expect(
+      transportSummary({
+        ...hysteria,
+        raw_outbound: { protocol: "hysteria", settings: { version: 2 } },
+      }),
+    ).toBe("Hysteria2 / JSON");
+    expect(transportSummary(hysteria)).toBe("Hysteria / JSON");
+  });
 });

@@ -17,7 +17,11 @@ function hysteriaLabel(server: VlessServer): string {
 
 export function transportSummary(server: VlessServer): string {
   if (server.protocol.toLowerCase() === "hysteria") {
-    return hysteriaLabel(server);
+    // Hysteria names its own transport, but a JSON-backed location still needs
+    // the JSON marker: it is edited as a provider profile, not as a URI.
+    return [hysteriaLabel(server), server.source_json ? "JSON" : null]
+      .filter(Boolean)
+      .join(" / ");
   }
   const protocol =
     PROTOCOL_LABELS[server.protocol] ?? server.protocol.toUpperCase();
