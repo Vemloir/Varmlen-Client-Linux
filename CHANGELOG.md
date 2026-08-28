@@ -13,6 +13,17 @@
   end-to-end egress probe still starts a real Xray through the candidate.
 - Say what Xray actually complained about. Xray writes `Failed to start:` to
   stdout, so a stderr-only report arrived empty for every configuration error.
+- Report a location as reachable when it is. The latency probe asks the
+  profile's own DNS-over-HTTPS resolver a name through the same path and
+  requires the answer, but `reqwest` was built without `http2`, so that request
+  left as HTTP/1.1 and `9.9.9.9/dns-query` -- the resolver every profile
+  without an explicit one falls back to -- answers `505` to exactly that. Every
+  location on the default resolver read as dead, which is why it showed n/a
+  right away while carrying traffic normally. A resolver that will not answer
+  no longer hides its location either: it is asked in the first probe round and
+  dropped in the second, which measures the proxy path alone, so a provider
+  that refuses the resolver it does not sell costs the probe five seconds and
+  not its latency.
 - Accept the 15 s probe budget a UDP transport needs. The daemon refused any
   timeout above 10 s, so every Hysteria2, WireGuard, mKCP and QUIC location's
   latency probe was rejected before it ran and the location read as unpingable.
