@@ -14,14 +14,11 @@ function msg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-/** Current split-tunnel selection (enabled entries for the active mode). */
+/** Current split-tunnel selection, in the shape the daemon wants. The store
+ *  owns that shape because a live rule update has to send exactly what a
+ *  connect would, or the two paths drift apart. */
 function splitInput(): SplitInput {
-  return {
-    appsMode: split.appsMode,
-    sitesMode: split.sitesMode,
-    apps: split.apps.filter((a) => a.enabled).map((a) => a.id),
-    sites: split.sites.filter((s) => s.enabled).map((s) => s.pattern),
-  };
+  return split.input();
 }
 
 class ConnStore {

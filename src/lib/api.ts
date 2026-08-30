@@ -229,6 +229,16 @@ export function vpnConnect(
   });
 }
 
+/** Point a running tunnel at an edited exception list.
+ *
+ *  Split rules used to reach the daemon only with a connect. Resolving false
+ *  means there was nothing live to change -- no tunnel, another platform, or a
+ *  daemon that predates the command -- and the list applies on the next
+ *  connect, so callers have no error to show. */
+export function applySplitLive(split: SplitInput): Promise<boolean> {
+  return invoke<boolean>("vpn_apply_split", { split }).catch(() => false);
+}
+
 export function vpnDisconnect(): Promise<HelperResponse> {
   return invoke<HelperResponse>("vpn_disconnect");
 }

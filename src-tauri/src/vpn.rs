@@ -222,6 +222,40 @@ pub async fn vpn_disconnect(app: tauri::AppHandle) -> Result<HelperResponse, Str
     }
 }
 
+/// Point a running tunnel at an edited exception list.
+///
+/// Split rules used to reach the daemon inside a connect only, so adding or
+/// removing an application while the tunnel was up did nothing until the user
+/// reconnected -- and an application taken out of the list kept going direct.
+/// A daemon that is not running, or one older than this command, keeps the
+/// list for the next connect and answers `false`.
+#[tauri::command]
+pub async fn vpn_apply_split(split: SplitInput) -> Result<bool, String> {
+    #[cfg(target_os = "linux")]
+    {
+        use varmlend::protocol::{ApplicationsRequest, DaemonCommand};
+
+        let applications = if split.apps_selective() {
+            Vec::new()
+        } else {
+            split.enabled_apps()
+        };
+        let _operation = vpn_op_lock().lock().await;
+        let Ok(mut daemon) = crate::daemon_client::DaemonClient::connect_installed().await else {
+            return Ok(false);
+        };
+        Ok(daemon
+            .request(DaemonCommand::UpdateSplit(ApplicationsRequest { applications }))
+            .await
+            .is_ok())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = split;
+        Ok(false)
+    }
+}
+
 #[tauri::command]
 pub async fn vpn_status(app: tauri::AppHandle) -> Result<HelperResponse, String> {
     #[cfg(target_os = "android")]

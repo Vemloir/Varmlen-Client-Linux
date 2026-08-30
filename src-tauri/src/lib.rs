@@ -367,6 +367,7 @@ pub fn run() {
             xray::generate_xray_config,
             vpn::vpn_connect,
             vpn::vpn_disconnect,
+            vpn::vpn_apply_split,
             vpn::vpn_status,
             vpn::tcp_ping_host,
             vpn::proxy_get_ping,

@@ -1,4 +1,6 @@
 import { browser } from "$app/environment";
+import { applySplitLive, type SplitInput } from "$lib/api";
+import { isLinux } from "$lib/platform";
 
 export type Mode = "selective" | "general";
 
@@ -131,6 +133,29 @@ class SplitStore {
   private setApps(next: AppEntry[]): void {
     this.appsBuckets = { ...this.appsBuckets, [this.appsMode]: next };
     this.persist();
+    this.pushApps();
+  }
+
+  /** Hand the edited app list to a tunnel that is already up.
+   *
+   *  Rules used to travel only with a connect, so adding or removing an
+   *  application while the VPN ran looked inert until the tunnel was cycled.
+   *  Where there is no daemon to tell -- not connected, another platform, an
+   *  older daemon -- the list simply waits for the next connect, which is why
+   *  a failure here is not worth showing the user. */
+  private pushApps(): void {
+    if (!isLinux) return;
+    void applySplitLive(this.input());
+  }
+
+  /** The split as the daemon and the connect command want it. */
+  input(): SplitInput {
+    return {
+      appsMode: this.appsMode,
+      sitesMode: this.sitesMode,
+      apps: this.apps.filter((a) => a.enabled).map((a) => a.id),
+      sites: this.sites.filter((s) => s.enabled).map((s) => s.pattern),
+    };
   }
   private setSites(next: SiteEntry[]): void {
     this.sitesBuckets = { ...this.sitesBuckets, [this.sitesMode]: next };
@@ -151,6 +176,7 @@ class SplitStore {
   setAppsMode(m: Mode): void {
     this.appsMode = m;
     this.persist();
+    this.pushApps();
   }
   setSitesMode(m: Mode): void {
     this.sitesMode = m;
