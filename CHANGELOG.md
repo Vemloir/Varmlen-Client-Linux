@@ -1,7 +1,19 @@
 # Changelog
 
-## 0.3.1
+## 0.3.2
 
+- Split rules now reach the tunnel that is already up. An application added to
+  the exceptions used to keep going through the VPN, and one removed used to
+  keep going direct, until the tunnel was cycled, because the rules travelled
+  only inside a connect; the edited list is pushed to the running split.
+- The split finds the applications it used to miss. A Windows game is named by
+  the image inside its launcher's arguments -- Proton execs `wine64` and carries
+  `REPO.exe` as a later word -- and a sandboxed application is claimed by its
+  application id (`org.vinegarhq.Sober`) through the scope it runs in, which
+  bubblewrap puts beyond the reach of exec notifications. A process is handed
+  back only when the rule that moved it leaves the list: membership of the
+  bypass cgroup is inherited, and ejecting an inherited member had cut a
+  sandbox in half.
 - Show the `JSON` marker on Hysteria2 locations too. A location edited as a
   provider profile says so whatever its transport; previously only VLESS and
   friends carried it, so Hysteria2 locations looked like share links.
@@ -31,6 +43,8 @@
   probe failed instead of "HTTP ping failed through every proxy path". An older
   daemon still answering a 24/7 tunnel gets the shorter probe it accepts instead
   of a rejection.
+
+## 0.3.1
 
 - Use hostname-based Cloudflare and Google DoH with static bootstrap addresses
   and parallel fallback, avoiding DNS stalls on routes that reject HTTPS to a
