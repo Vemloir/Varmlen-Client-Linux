@@ -70,6 +70,10 @@ export interface Subscription {
   collapsed: boolean;
   /** Pinned subscriptions sort to the top of the list. */
   pinned: boolean;
+  /** Why the last update failed, or null when the last update worked. A failed
+   *  update keeps the previous locations, so without this the subscription
+   *  simply grows stale with no trace of why. */
+  lastError: string | null;
   /** True while refresh() is in flight. Not persisted. */
   refreshing?: boolean;
 }
@@ -97,6 +101,19 @@ function serverKey(srv: ServerEntry): string {
 }
 
 const KEY = "varmlen.subs";
+
+/** Shown when the fetch worked but yielded nothing usable — the usual sign of a
+ *  provider that answered with an error page or a format we cannot parse. */
+export const NO_LOCATIONS_ERROR = "subscription returned no locations";
+
+/** A fetch error is a transport string; keep the URL out of it and keep the
+ *  message short enough to render in the subscription card. */
+function describeError(e: unknown, url: string): string {
+  const raw =
+    e instanceof Error ? e.message : typeof e === "string" ? e : JSON.stringify(e);
+  const text = (raw || "unknown error").replace(url, "<subscription>").trim();
+  return text.length > 180 ? `${text.slice(0, 177)}...` : text;
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -140,6 +157,7 @@ function migrateIds(subs: Subscription[]): { subs: Subscription[]; remapped: Rec
     if (sub.sourceJson === undefined) sub.sourceJson = null;
     if (sub.jsonEdited === undefined) sub.jsonEdited = false;
     if (sub.pinned === undefined) sub.pinned = false;
+    if (sub.lastError === undefined) sub.lastError = null;
     if (sub.refreshing) sub.refreshing = false;
   }
   return { subs: mergeManualConfigurations(subs), remapped };
@@ -388,6 +406,7 @@ class SubsStore {
         servers,
         collapsed: false,
         pinned: false,
+        lastError: null,
       };
       this.list = isUrl
         ? [...this.list, sub]
@@ -399,9 +418,11 @@ class SubsStore {
     }
   }
 
-  async refresh(subId: string, reschedule = true): Promise<void> {
+  /** false when the subscription still holds what the previous fetch left
+   *  behind, so the automatic scheduler can back off instead of re-firing. */
+  async refresh(subId: string, reschedule = true): Promise<boolean> {
     const idx = this.list.findIndex((s) => s.id === subId);
-    if (idx < 0) return;
+    if (idx < 0) return false;
     const sub = this.list[idx];
     // mark this sub as refreshing for the UI spinner
     this.list = this.list.map((s) =>
@@ -413,10 +434,15 @@ class SubsStore {
         settings.subscriptionUserAgent,
       );
       if (result.servers.length === 0) {
+        // The fetch worked and the parser produced nothing. Reporting this as a
+        // success would silently freeze the location list at the provider's
+        // previous fleet.
         this.list = this.list.map((s) =>
-          s.id === subId ? { ...s, refreshing: false } : s,
+          s.id === subId
+            ? { ...s, refreshing: false, lastError: NO_LOCATIONS_ERROR }
+            : s,
         );
-        return;
+        return false;
       }
       // The latest response is authoritative, full stop — no falling back to
       // cached quota/expiry from a previous fetch. If this response doesn't
@@ -443,6 +469,7 @@ class SubsStore {
               jsonEdited: false,
               importedAt: new Date().toISOString(),
               refreshing: false,
+              lastError: null,
             }
           : s,
       );
@@ -455,11 +482,15 @@ class SubsStore {
     } catch (e) {
       console.error("refresh failed:", e);
       this.list = this.list.map((s) =>
-        s.id === subId ? { ...s, refreshing: false } : s,
+        s.id === subId
+          ? { ...s, refreshing: false, lastError: describeError(e, sub.url) }
+          : s,
       );
+      return false;
     } finally {
       if (reschedule) this.rescheduleAutoRefresh();
     }
+    return true;
   }
 
   /** Validate and atomically apply edited subscription JSON. Remote sources keep
@@ -489,6 +520,7 @@ class SubsStore {
             jsonEdited: remote,
             servers: freshServers,
             importedAt: new Date().toISOString(),
+            lastError: null,
           }
         : s,
     );
@@ -496,8 +528,13 @@ class SubsStore {
     this.prunePings();
   }
 
-  /** Start exact future-boundary scheduling without fetching on application
-   *  mount. Missed cycles are skipped by nextRefreshBatch. */
+  /** Epoch ms of the last automatic attempt per subscription, with its outcome.
+   *  In-memory: a restart is exactly when a new catch-up attempt is wanted. */
+  private autoRefreshAttempts = new Map<string, { atMs: number; ok: boolean }>();
+
+  /** Start scheduling. A subscription whose provider interval has already passed
+   *  is fetched immediately — the client is closed between launches, and a
+   *  provider rotates its endpoints while it is. */
   startAutoRefresh(): () => void {
     if (this.autoRefreshStarted) return () => this.stopAutoRefresh();
     this.autoRefreshStarted = true;
@@ -529,6 +566,8 @@ class SubsStore {
         id: sub.id,
         lastSuccessIso: sub.importedAt,
         intervalHours: sub.updateIntervalHours,
+        lastAttemptMs: this.autoRefreshAttempts.get(sub.id)?.atMs ?? null,
+        lastAttemptOk: this.autoRefreshAttempts.get(sub.id)?.ok,
       })),
       Date.now(),
     );
@@ -551,7 +590,9 @@ class SubsStore {
   private async refreshAutoBatch(ids: string[]): Promise<void> {
     for (const id of ids) {
       if (!this.autoRefreshStarted || !settings.subscriptionAutoUpdate) break;
-      await this.refresh(id, false);
+      const atMs = Date.now();
+      const ok = await this.refresh(id, false);
+      this.autoRefreshAttempts.set(id, { atMs, ok });
     }
     this.rescheduleAutoRefresh();
   }

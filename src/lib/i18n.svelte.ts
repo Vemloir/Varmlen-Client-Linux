@@ -24,6 +24,7 @@ const EN: Dict = {
   "home.autoUpdate": "auto-update {h}h",
   "home.expires": "Expires: {date}",
   "home.variants": "{n} variants",
+  "home.updateFailed": "last update failed: {error}",
 
   // subscription menu
   "menu.info": "Subscription info",
@@ -37,6 +38,7 @@ const EN: Dict = {
   "info.url": "URL",
   "info.imported": "Imported",
   "info.autoUpdate": "Auto-update",
+  "info.updateError": "Last update error",
   "info.everyH": "every {h} h",
   "info.traffic": "Traffic",
   "info.expires": "Expires",
@@ -225,6 +227,7 @@ const RU: Dict = {
   "home.autoUpdate": "автообновление {h}ч",
   "home.expires": "Истекает: {date}",
   "home.variants": "вариантов: {n}",
+  "home.updateFailed": "последнее обновление не удалось: {error}",
 
   "menu.info": "Информация о подписке",
   "menu.rename": "Переименовать",
@@ -236,6 +239,7 @@ const RU: Dict = {
   "info.url": "Ссылка",
   "info.imported": "Добавлена",
   "info.autoUpdate": "Автообновление",
+  "info.updateError": "Ошибка последнего обновления",
   "info.everyH": "каждые {h} ч",
   "info.traffic": "Трафик",
   "info.expires": "Истекает",

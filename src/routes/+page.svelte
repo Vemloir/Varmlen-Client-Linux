@@ -351,6 +351,11 @@
           {#if sub.updateIntervalHours}
             <div class="sub-meta muted">{t("home.autoUpdate", { h: sub.updateIntervalHours })}</div>
           {/if}
+          {#if sub.lastError}
+            <div class="sub-meta err" title={sub.lastError}>
+              {t("home.updateFailed", { error: sub.lastError })}
+            </div>
+          {/if}
         </div>
 
         <button
@@ -499,6 +504,11 @@
         {#if infoFor.updateIntervalHours}
           <dt>{t("info.autoUpdate")}</dt>
           <dd>{t("info.everyH", { h: infoFor.updateIntervalHours })}</dd>
+        {/if}
+
+        {#if infoFor.lastError}
+          <dt>{t("info.updateError")}</dt>
+          <dd class="small">{infoFor.lastError}</dd>
         {/if}
 
         <dt>{t("info.traffic")}</dt>
@@ -926,6 +936,12 @@
   .sub-meta {
     font-size: 11px;
     margin-top: 1px;
+  }
+  .sub-meta.err {
+    color: var(--danger);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .head-btn {
     width: 30px;

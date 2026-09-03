@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+- Locations stop turning into dead endpoints while the client is closed. The
+  automatic subscription update waited for the next provider boundary strictly
+  after the moment the application happened to start, and the application lives
+  in the tray: a boundary crossed while the window was closed never came again,
+  so the fetch never ran. A Proxen subscription on a four-hour interval kept the
+  fleet of its last launch for two weeks, and every location whose address the
+  provider had since retired -- the primary of "YouTube без рекламы" and of one
+  Эстония -- failed the handshake while Happ, which refetches, worked. A
+  subscription whose interval has already passed is now updated as soon as the
+  client starts. The interval itself still decides the schedule of a client that
+  stays open.
+- Say that an update failed instead of quietly keeping the old list. A refresh
+  that threw, or that came back parsing to no locations at all, left the
+  subscription looking healthy with the previous servers and no trace of the
+  failure; now the reason is stored, shown on the subscription card and in its
+  info sheet, and retried after five minutes rather than every reschedule.
+
 ## 0.3.2
 
 - Split rules now reach the tunnel that is already up. An application added to
