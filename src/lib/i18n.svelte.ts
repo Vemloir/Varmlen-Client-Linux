@@ -23,6 +23,7 @@ const EN: Dict = {
   "home.empty": "No subscriptions yet. Tap + in the top-right corner.",
   "home.autoUpdate": "auto-update {h}h",
   "home.expires": "Expires: {date}",
+  "home.selectionLost": "“{name}” is no longer in the subscription. Nothing else was selected automatically — pick a location.",
   "home.variants": "{n} variants",
   "home.updateFailed": "last update failed: {error}",
 
@@ -226,6 +227,7 @@ const RU: Dict = {
   "home.empty": "Пока нет подписок. Нажмите + в правом верхнем углу.",
   "home.autoUpdate": "автообновление {h}ч",
   "home.expires": "Истекает: {date}",
+  "home.selectionLost": "«{name}» больше нет в подписке. Ничего другое вместо неё не выбирали — выбери локацию сам.",
   "home.variants": "вариантов: {n}",
   "home.updateFailed": "последнее обновление не удалось: {error}",
 

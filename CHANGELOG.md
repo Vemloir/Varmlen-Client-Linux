@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- The client no longer picks a different country by itself. A refresh regenerates
+  every location id, so the chosen one was re-found by its endpoint
+  (`protocol:host:port:uuid`) -- and a composite JSON profile exposes its FIRST
+  proxy outbound as that host, which is exactly what a provider rotates: when
+  Proxen moved the primary of «США», the stored endpoint matched nothing and the
+  selection fell back to the first location of the first subscription, so the
+  active location jumped to another country on its own. The selection is now
+  re-found by endpoint and then by the location label inside the same
+  subscription; a location that really vanished leaves nothing selected and says
+  so instead of choosing another one, and its identity is kept, so an update that
+  brings it back restores the choice.
+
 - Locations stop turning into dead endpoints while the client is closed. The
   automatic subscription update waited for the next provider boundary strictly
   after the moment the application happened to start, and the application lives
