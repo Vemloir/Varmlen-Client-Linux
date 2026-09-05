@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- Ask a profile's resolver over a transport the proxy actually carries. Full
+  JSON profiles hard-wire `8.8.8.8`-style UDP resolvers and the client forces
+  every resolver connection through the selected proxy -- the anti-leak
+  invariant -- but forwarded UDP/53 is what proxy servers routinely drop: across
+  Proxen's fleet UDP DNS answered on 9 of 23 endpoints, TCP on 16 and DoH on 16,
+  every endpoint that carried proxy traffic at all. The failure looked like
+  "latency is green, nothing works": the tunnel is up, the resolver is not, so
+  xray cannot resolve the observatory's own probe URL, the balancer keeps the
+  profile's fallback outbound, and every lookup in every app hangs. Happ does
+  not notice (it resolves through its own DoH) and neither does a client that
+  sends the resolver direct, but both still leave UDP behind. A plain IP
+  resolver now becomes DoH of the same operator first, then the same IP over
+  TCP, then the provider's own UDP entry: one set per operator, still forced
+  through the proxy, nothing substituted. With UDP/53 blocked in a test config,
+  the old plan resolved 0 of 11 endpoints and the new one resolved 9 of 11 -- the
+  two remaining do not carry proxy traffic either.
 - The client no longer picks a different country by itself. A refresh regenerates
   every location id, so the chosen one was re-found by its endpoint
   (`protocol:host:port:uuid`) -- and a composite JSON profile exposes its FIRST
