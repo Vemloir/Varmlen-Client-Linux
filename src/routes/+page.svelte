@@ -7,7 +7,8 @@
   import { releaseActiveControl } from "$lib/modal-lifecycle";
   import { modalActionFromTarget } from "$lib/modal-events";
   import { isAndroid } from "$lib/platform";
-  import { placePopup, portal } from "$lib/popup";
+  import { tick } from "svelte";
+  import { placeAtPoint, placePopup, portal } from "$lib/popup";
   import FlagIcon from "$lib/components/FlagIcon.svelte";
   import LocationEditor from "$lib/components/LocationEditor.svelte";
   import ServerList from "$lib/components/ServerList.svelte";
@@ -153,6 +154,94 @@
     else next.add(subId);
     revealedHidden = next;
   }
+
+  /** THE location menu. One instance for the whole page: a state per card left
+   *  several menus open when the user right-clicked in two subscriptions. */
+  let locMenu = $state<{
+    sub: Subscription;
+    server: ServerEntry;
+    items: LocationAction[];
+    x: number;
+    y: number;
+  } | null>(null);
+  let locMenuPos = $state({ top: 0, left: 0 });
+  let locMenuWidth = $state(0);
+  let locMenuEl = $state<HTMLDivElement | undefined>();
+  let locMenuOpenedAt = 0;
+
+  const LOCATION_MENU_LABELS: Record<LocationAction, () => string> = {
+    ping: () => t("menu.ping"),
+    rename: () => t("menu.rename"),
+    pin: () => t("menu.pinLocation"),
+    unpin: () => t("menu.unpinLocation"),
+    hide: () => t("menu.hide"),
+    unhide: () => t("menu.unhide"),
+    delete: () => t("menu.deleteLocation"),
+  };
+
+  /** Opens at the pointer (its top-left corner at the cursor, flipping left/above
+   *  near an edge) and is as wide as its longest item. `max-content` is not enough
+   *  in every WebKitGTK build, so the width is measured from the text and set. */
+  async function openLocationMenu(
+    sub: Subscription,
+    server: ServerEntry,
+    point: { x: number; y: number },
+  ): Promise<void> {
+    const items = subs.locationActionsFor(sub, server);
+    locMenu = { sub, server, items, x: point.x, y: point.y };
+    locMenuOpenedAt = Date.now();
+    locMenuWidth = 160;
+    locMenuPos = placeAtPoint(point.x, point.y, 160, items.length * 33 + 10);
+    await tick();
+    if (!locMenu || locMenu.server.id !== server.id || !locMenuEl) return;
+    let widest = 0;
+    for (const item of locMenuEl.querySelectorAll<HTMLElement>(".loc-menu-item")) {
+      widest = Math.max(widest, item.scrollWidth);
+    }
+    // item padding 10+10, menu padding 4+4, border 1+1
+    const width = Math.max(96, Math.min(widest + 30, window.innerWidth - 24));
+    locMenuWidth = width;
+    await tick();
+    const height = locMenuEl?.getBoundingClientRect().height ?? items.length * 33 + 10;
+    locMenuPos = placeAtPoint(point.x, point.y, width, height);
+  }
+
+  function closeLocationMenu(): void {
+    locMenu = null;
+  }
+
+  function runLocationAction(action: LocationAction): void {
+    if (!locMenu) return;
+    const { sub, server } = locMenu;
+    closeLocationMenu();
+    locationAction(action, server, sub);
+  }
+
+  $effect(() => {
+    if (!locMenu) return;
+    const onDocClick = (event: Event) => {
+      const node = event.target as Node | null;
+      if (node && (locMenuEl?.contains(node) ?? false)) return;
+      // The click that ends our own right click / long press must not close the
+      // menu it just opened.
+      if (Date.now() - locMenuOpenedAt < 250) return;
+      closeLocationMenu();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeLocationMenu();
+    };
+    const onScroll = () => closeLocationMenu();
+    document.addEventListener("click", onDocClick, true);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("click", onDocClick, true);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  });
 
   function locationAction(
     action: LocationAction,
@@ -512,8 +601,7 @@
           pinnedIds={subs.locationPinnedIds(sub)}
           onSelect={(id) => subs.selectServer(id)}
           onDetails={openDetails}
-          actionsFor={(server) => subs.locationActionsFor(sub, server)}
-          onAction={(action, server) => locationAction(action, server, sub)}
+          onMenu={(server, point) => void openLocationMenu(sub, server, point)}
         />
         {#if subs.hiddenCount(sub) > 0}
           <button class="link-btn hidden-toggle" onclick={() => toggleRevealed(sub.id)}>
@@ -533,6 +621,28 @@
   {/if}
 </main>
 </div>
+
+{#if locMenu}
+  <div
+    class="loc-menu"
+    class:loc-menu--animated={isAndroid}
+    role="menu"
+    use:portal
+    style="top: {locMenuPos.top}px; left: {locMenuPos.left}px; width: {locMenuWidth}px;"
+    bind:this={locMenuEl}
+  >
+    {#each locMenu.items as action (action)}
+      <button
+        role="menuitem"
+        class="loc-menu-item"
+        class:danger={action === "delete"}
+        onclick={() => runLocationAction(action)}
+      >
+        {LOCATION_MENU_LABELS[action]()}
+      </button>
+    {/each}
+  </div>
+{/if}
 
 {#if activeModal === "info" && infoFor}
   <div class="modal-backdrop" data-modal-action="close" role="presentation">
@@ -1031,6 +1141,46 @@
   .hidden-toggle {
     margin: 4px 14px 6px;
   }
+
+  /* The location menu. Width is set in JS from the longest item, so a Russian
+     menu does not pay for an English one and vice versa. */
+  .loc-menu {
+    position: fixed;
+    box-sizing: border-box;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+    padding: 4px;
+    z-index: 210;
+  }
+  /* Android only: the menu answers a press, so it should arrive with motion.
+     Desktop opens on right-click and must appear instantly. */
+  .loc-menu--animated {
+    animation: loc-menu-in 140ms ease-out;
+    transform-origin: top left;
+  }
+  @keyframes loc-menu-in {
+    from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .loc-menu--animated { animation: none; }
+  }
+  .loc-menu-item {
+    display: block;
+    width: 100%;
+    white-space: nowrap;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 13px;
+  }
+  .loc-menu-item:hover { background: var(--bg-elev-3); }
+  .loc-menu-item.danger { color: var(--danger); }
 
   .menu {
     position: fixed;

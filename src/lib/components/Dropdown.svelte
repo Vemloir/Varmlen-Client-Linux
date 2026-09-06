@@ -151,10 +151,10 @@
     align-items: center;
     gap: 6px;
     padding: 6px 8px 6px 12px;
-    /* The card's own background: a hovered settings row is --bg-elev-2, so a
-       control in the card colour always stays readable against it, with no
-       outline needed. */
-    background: var(--bg-elev);
+    /* The application background (--bg), no outline: the row is lighter and gets
+       lighter still on hover, so a control in the app colour never blends into
+       either state. */
+    background: var(--bg);
     border: none;
     border-radius: var(--radius-sm);
     font-size: 13px;

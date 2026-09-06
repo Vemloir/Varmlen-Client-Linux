@@ -1,11 +1,8 @@
 <script lang="ts">
-  import { tick } from "svelte";
   import FlagIcon from "./FlagIcon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { isAndroid } from "$lib/platform";
-  import { placeAtPoint, portal } from "$lib/popup";
   import { createLongPress } from "$lib/long-press";
-  import type { LocationAction } from "$lib/location-actions";
   import type { PingState, ServerEntry } from "$lib/subs.svelte";
 
   let {
@@ -16,8 +13,7 @@
     pinnedIds = [],
     onSelect,
     onDetails,
-    actionsFor,
-    onAction,
+    onMenu,
   }: {
     servers: ServerEntry[];
     selectedServerId: string | null;
@@ -29,93 +25,65 @@
     pinnedIds?: string[];
     onSelect: (id: string) => void;
     onDetails: (server: ServerEntry) => void;
-    actionsFor: (server: ServerEntry) => LocationAction[];
-    onAction: (action: LocationAction, server: ServerEntry) => void;
+    /** Ask the page to open the location menu at a point. The page owns THE menu:
+     *  a state per card left two of them on screen when the user right-clicked in
+     *  two different subscriptions. */
+    onMenu: (server: ServerEntry, point: { x: number; y: number }) => void;
   } = $props();
-
-  let openFor = $state<string | null>(null);
-  let items = $state<LocationAction[]>([]);
-  let target = $state<ServerEntry | null>(null);
-  let pos = $state({ top: 0, left: 0 });
 
   const hiddenSet = $derived(new Set(hiddenIds));
   const pinnedSet = $derived(new Set(pinnedIds));
 
-  const LABELS: Record<LocationAction, () => string> = {
-    ping: () => t("menu.ping"),
-    rename: () => t("menu.rename"),
-    pin: () => t("menu.pinLocation"),
-    unpin: () => t("menu.unpinLocation"),
-    hide: () => t("menu.hide"),
-    unhide: () => t("menu.unhide"),
-    delete: () => t("menu.deleteLocation"),
-  };
-
   /** The row a finger is currently on — Android only. */
-  let pendingRow: { server: ServerEntry; anchor: HTMLElement } | null = null;
+  let pendingRow: ServerEntry | null = null;
 
   const press = createLongPress({
     onTrigger: (point) => {
       if (!pendingRow) return;
-      openAt(pendingRow.server, point);
+      onMenu(pendingRow, point);
     },
   });
 
-  /** The menu opens AT the pointer: its top-left corner is where the finger or
-   *  the cursor is, flipping to the left/above when there is no room. It is placed
-   *  twice -- once from an estimate, then from its real size, because the width
-   *  depends on the language and a fixed 220px wastes the difference. */
-  async function openAt(
+  function openFromEvent(
+    event: MouseEvent | KeyboardEvent,
     server: ServerEntry,
-    point: { x: number; y: number },
-  ): Promise<void> {
-    target = server;
-    items = actionsFor(server);
-    pos = placeAtPoint(point.x, point.y, 180, items.length * 37 + 8);
-    openFor = server.id;
-    openedAt = Date.now();
-    await tick();
-    if (openFor !== server.id || !menuEl) return;
-    const rect = menuEl.getBoundingClientRect();
-    pos = placeAtPoint(point.x, point.y, rect.width, rect.height);
+  ): void {
+    if (event instanceof MouseEvent && event.clientX !== 0) {
+      onMenu(server, { x: event.clientX, y: event.clientY });
+      return;
+    }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    onMenu(server, { x: rect.left, y: rect.bottom });
   }
 
-  let openedAt = 0;
-
-  function closeMenu(): void {
-    openFor = null;
-    target = null;
-  }
-
-  function handleContextmenu(event: MouseEvent, server: ServerEntry) {
+  function handleContextmenu(event: MouseEvent, server: ServerEntry): void {
     if (isAndroid) return;
     event.preventDefault();
-    openAt(server, { x: event.clientX, y: event.clientY });
+    openFromEvent(event, server);
   }
 
-  function handleKeydown(event: KeyboardEvent, server: ServerEntry) {
+  function handleKeydown(event: KeyboardEvent, server: ServerEntry): void {
     // The standard menu key, plus Shift+F10 where a keyboard has no such key.
     if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10"))
       return;
     event.preventDefault();
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    openAt(server, { x: rect.left, y: rect.bottom });
+    openFromEvent(event, server);
   }
 
   // Android: a press opens the menu after a delay, and dies the moment the list
   // moves under the finger. Desktop never arms this — right-click opens at once.
-  function handlePointerdown(event: PointerEvent, server: ServerEntry) {
+  function handlePointerdown(event: PointerEvent, server: ServerEntry): void {
     if (!isAndroid || event.pointerType === "mouse") return;
-    pendingRow = { server, anchor: event.currentTarget as HTMLElement };
+    pendingRow = server;
     press.onPress(event.clientX, event.clientY);
   }
 
-  function handlePointermove(event: PointerEvent) {
+  function handlePointermove(event: PointerEvent): void {
     if (!isAndroid) return;
     press.onMove(event.clientX, event.clientY);
   }
 
-  function handlePointerup() {
+  function handlePointerup(): void {
     if (!isAndroid) return;
     press.onRelease();
   }
@@ -134,50 +102,19 @@
     window.addEventListener("scroll", onCancel, true);
     return () => window.removeEventListener("scroll", onCancel, true);
   });
-
-  $effect(() => {
-    if (!openFor) return;
-    const onDocClick = (e: Event) => {
-      const node = e.target as Node | null;
-      if (node && (menuEl?.contains(node) ?? false)) return;
-      // The click that follows our own long press, and anything inside the same
-      // gesture, must not close the menu we just opened.
-      if (press.consumeClick()) return;
-      if (Date.now() - openedAt < 250) return;
-      closeMenu();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeMenu();
-    };
-    document.addEventListener("click", onDocClick, true);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("click", onDocClick, true);
-      document.removeEventListener("keydown", onKey);
-    };
-  });
-
-  let menuEl: HTMLDivElement | undefined = $state();
-
-  function run(action: LocationAction): void {
-    if (target) onAction(action, target);
-    closeMenu();
-  }
 </script>
 
 <ul class="server-list">
   {#each servers as server (server.id)}
     {@const ping = pings[server.id]}
-    {@const hidden = hiddenSet.has(server.id)}
     <li
       class="srv-row"
       class:active={selectedServerId === server.id}
-      class:hidden-row={hidden}
+      class:hidden-row={hiddenSet.has(server.id)}
     >
       <button
         class="srv-btn"
         aria-haspopup="menu"
-        aria-expanded={openFor === server.id}
         onclick={() => handleRowClick(server)}
         oncontextmenu={(e) => handleContextmenu(e, server)}
         onkeydown={(e) => handleKeydown(e, server)}
@@ -211,6 +148,7 @@
         class="srv-detail"
         aria-label="Location details"
         onclick={() => onDetails(server)}
+        oncontextmenu={(e) => handleContextmenu(e, server)}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" class="chev" aria-hidden="true">
           <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
@@ -219,28 +157,6 @@
     </li>
   {/each}
 </ul>
-
-{#if openFor && target}
-  <div
-    class="loc-menu"
-    class:loc-menu--animated={isAndroid}
-    role="menu"
-    use:portal
-    style="top: {pos.top}px; left: {pos.left}px;"
-    bind:this={menuEl}
-  >
-    {#each items as action (action)}
-      <button
-        role="menuitem"
-        class="loc-menu-item"
-        class:danger={action === "delete"}
-        onclick={() => run(action)}
-      >
-        {LABELS[action]()}
-      </button>
-    {/each}
-  </div>
-{/if}
 
 <style>
   .server-list {
@@ -339,46 +255,4 @@
     padding-right: 4px;
     color: var(--muted, #888);
   }
-
-  .loc-menu {
-    position: fixed;
-    /* Explicit width: a fixed element with right set + width:auto stretches to
-       the left edge in Android WebView instead of shrinking to its content. */
-    /* Content width: as wide as the longest item and no wider. A fixed width (or
-       a generous min-width) makes an English menu pay for a Russian one. */
-    width: max-content;
-    max-width: calc(100vw - 24px);
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow);
-    padding: 4px;
-    z-index: 210;
-  }
-  /* Android only: the menu answers a press, so it should arrive with motion.
-     Desktop opens on right-click and must appear instantly. */
-  .loc-menu--animated {
-    animation: loc-menu-in 140ms ease-out;
-    transform-origin: top right;
-  }
-  @keyframes loc-menu-in {
-    from { opacity: 0; transform: translateY(-4px) scale(0.97); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .loc-menu--animated { animation: none; }
-  }
-  .loc-menu-item {
-    width: 100%;
-    white-space: nowrap;
-    text-align: left;
-    padding: 8px 10px;
-    border-radius: 6px;
-    background: transparent;
-    border: none;
-    color: var(--text);
-    font-size: 13px;
-  }
-  .loc-menu-item:hover { background: var(--bg-elev-3); }
-  .loc-menu-item.danger { color: var(--danger); }
 </style>

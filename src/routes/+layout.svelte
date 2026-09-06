@@ -32,6 +32,45 @@
     }
   }
 
+  // The WebView here is a component, not a browser: a right-click must never
+  // offer Back / Forward / Stop / Reload. Editable fields keep their own
+  // Cut/Copy/Paste, which is the only menu a user ever wants from this gesture.
+  $effect(() => {
+    const onContext = (event: MouseEvent) => {
+      const el = event.target as HTMLElement | null;
+      if (!el) return;
+      const tag = el.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
+      event.preventDefault();
+    };
+    document.addEventListener("contextmenu", onContext, { capture: true });
+
+    // Same for the keyboard: Backspace and Alt+arrows are browser history
+    // gestures, and in a WebView they leave the app instead of doing nothing.
+    // Inside a field Backspace still deletes.
+    const onKeydown = (event: KeyboardEvent) => {
+      const el = event.target as HTMLElement | null;
+      const editable =
+        !!el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.isContentEditable);
+      if (event.key === "Backspace" && !editable) {
+        event.preventDefault();
+        return;
+      }
+      if (event.altKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+        event.preventDefault();
+      }
+    };
+    document.addEventListener("keydown", onKeydown, { capture: true });
+
+    return () => {
+      document.removeEventListener("contextmenu", onContext, { capture: true });
+      document.removeEventListener("keydown", onKeydown, { capture: true });
+    };
+  });
+
   let { children } = $props();
 
   // Reading `page.url.pathname` through a $derived ensures the active-tab

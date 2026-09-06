@@ -235,6 +235,22 @@ describe("location menu", () => {
     );
   });
 
+  it("keeps a single menu open across cards", async () => {
+    const view = render(Page);
+    const a = cardOf(view.getByText("Proxen") as HTMLElement);
+    const b = cardOf(view.getByText("Configuration") as HTMLElement);
+    await fireEvent.contextMenu(
+      within(a).getByText("Tallinn").closest("button") as HTMLElement,
+    );
+    await fireEvent.contextMenu(
+      within(b).getByText("Berliner").closest("button") as HTMLElement,
+    );
+    expect(view.getAllByRole("menu")).toHaveLength(1);
+    // The second request wins: it is the location the user just pointed at.
+    expect(view.queryByText("menu.deleteLocation")).toBeTruthy();
+    expect(view.queryByText("menu.hide")).toBeNull();
+  });
+
   it("marks a pinned location, like a pinned card does", () => {
     vi.mocked(subs.locationPinnedIds).mockReturnValueOnce(["server-sub"]);
     const view = render(Page);

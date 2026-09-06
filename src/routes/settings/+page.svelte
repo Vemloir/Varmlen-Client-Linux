@@ -925,14 +925,17 @@
     box-sizing: border-box;
     width: 32px;
     height: 32px;
-    padding: 0 6px;
+    padding: 0;
     border-radius: var(--radius-sm);
     border: none;
-    background: var(--bg-elev);
+    background: var(--bg);
     color: var(--text);
     font: inherit;
     font-size: 13px;
-    text-align: right;
+    /* The value sits in the middle of the square. */
+    text-align: center;
+    text-align-last: center;
+    caret-color: var(--text);
     font-variant-numeric: tabular-nums;
   }
   /* A stepper on "how many xray processes" is 43 clicks to 43, and the arrows
@@ -997,8 +1000,8 @@
 
   /* The Versions button on the core row carries its own icon. */
   .versions-btn {
-    /* Card background, no outline: readable on a hovered row (--bg-elev-2). */
-    background: var(--bg-elev);
+    /* Application background, no outline: readable on a row and on its hover. */
+    background: var(--bg);
     border: none;
   }
   .versions-btn:hover:not(:disabled) {

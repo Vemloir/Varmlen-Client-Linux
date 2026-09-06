@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- The window stops behaving like a browser tab. Right-click no longer opens the
+  WebView's Back / Forward / Stop / Reload menu (suppressed everywhere except
+  editable fields, where Cut/Copy/Paste is still what the gesture means), and
+  Backspace / Alt+arrow no longer walk through page history -- outside a field
+  they are browser gestures, and a VPN window has no history to walk.
+- One location menu for the whole app. The page owns it, so right-clicking in a
+  second subscription replaces the open menu instead of stacking another one on
+  top of it -- a per-card state could not know what the other card had opened.
+- The menu is as wide as its longest item: `max-content` is not honoured the same
+  way in every WebKitGTK build, so the width is measured from the item text and
+  set explicitly before the menu is placed against the pointer.
+- Settings controls take the application background (`--bg`) with no outline, and
+  the number sits in the middle of its square.
 - A pinned location goes to the TOP of the list and carries the same pin mark a
   pinned card carries -- a pin that sinks to the bottom is not a pin. The setting
   still orders the pinned ones among themselves.

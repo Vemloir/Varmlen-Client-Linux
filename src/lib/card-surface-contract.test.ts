@@ -41,19 +41,19 @@ describe("card surface contract", () => {
     expect(dropdown).not.toMatch(
       /\.trigger\[aria-expanded="true"\]\s*\{[^}]*border-top-left-radius:\s*0;/s,
     );
-    // A hovered settings row is --bg-elev-2, so controls keep the card's own
-    // background (--bg-elev) and no outline: readable on both row states.
+    // Controls take the APPLICATION background (--bg) with no outline: the card
+    // row is lighter and its hover is lighter still, so they read in both states.
     expect(dropdown).toMatch(
-      /\.trigger\s*\{[^}]*background:\s*var\(--bg-elev\);[^}]*border:\s*none;/s,
+      /\.trigger\s*\{[^}]*background:\s*var\(--bg\);[^}]*border:\s*none;/s,
     );
     expect(dropdown).toMatch(
       /\.trigger:hover\s*\{[^}]*background:\s*var\(--bg-elev-3\);/s,
     );
     expect(settings).toMatch(
-      /\.versions-btn\s*\{[^}]*background:\s*var\(--bg-elev\);[^}]*border:\s*none;/s,
+      /\.versions-btn\s*\{[^}]*background:\s*var\(--bg\);[^}]*border:\s*none;/s,
     );
     expect(settings).toMatch(
-      /\.num-input\s*\{[^}]*background:\s*var\(--bg-elev\);/s,
+      /\.num-input\s*\{[^}]*background:\s*var\(--bg\);[^}]*text-align:\s*center;/s,
     );
   });
 
