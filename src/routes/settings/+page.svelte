@@ -168,13 +168,6 @@
     { value: "newestFirst", label: t("settings.pinOrder.newestFirst") },
   ]);
 
-  /** `0` is "no limit"; every probe is a short-lived xray process, so the list
-   *  stays coarse on purpose. */
-  const pingConcurrencyOptions = ["0", "2", "4", "8", "16"].map((n) => ({
-    value: n,
-    label: n === "0" ? `${n} (∞)` : n,
-  }));
-
   const subscriptionUaOptions = [
     { value: "varmlen", label: "Varmlen" },
     { value: "happ", label: "Happ" },
@@ -285,26 +278,9 @@
     </div>
   </section>
 
+  <!-- How the app looks and behaves, as opposed to how the tunnel works. -->
   <section>
-    <h2>{t("settings.vpnMode")}</h2>
-    <div class="list">
-      <div class="row">
-        <div class="row-text">
-          <div class="row-title">{t("settings.vpnMode")}</div>
-          <div class="row-sub muted">{modeSub}</div>
-        </div>
-        <Dropdown
-          value={settings.vpnMode}
-          options={modeOptions}
-          onChange={(v) => settings.setVpnMode(v as VpnMode)}
-          ariaLabel={t("settings.vpnMode")}
-        />
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <h2>{t("settings.general")}</h2>
+    <h2>{t("settings.interface")}</h2>
     <div class="list">
       <div class="row">
         <div class="row-text">
@@ -317,34 +293,30 @@
           ariaLabel={t("settings.language")}
         />
       </div>
-      <label class="row">
+      <div class="row">
         <div class="row-text">
-          <div class="row-title">{t("settings.killswitch")}</div>
-          <div class="row-sub muted">{t("settings.killswitchSub")}</div>
+          <div class="row-title">{t("settings.hideLocations")}</div>
+          <div class="row-sub muted">{t("settings.hideLocationsSub")}</div>
         </div>
-        <span class="switch">
-          <input
-            type="checkbox"
-            checked={settings.killswitch}
-            onchange={(e) => settings.setKillswitch((e.currentTarget as HTMLInputElement).checked)}
-          />
-          <span class="slider"></span>
-        </span>
-      </label>
-      <label class="row">
+        <Dropdown
+          value={settings.hideLocations}
+          options={hideModeOptions}
+          onChange={(v) => settings.setHideLocations(v as HideLocationsMode)}
+          ariaLabel={t("settings.hideLocations")}
+        />
+      </div>
+      <div class="row">
         <div class="row-text">
-          <div class="row-title">{t("settings.allowLan")}</div>
-          <div class="row-sub muted">{t("settings.allowLanSub")}</div>
+          <div class="row-title">{t("settings.pinOrder")}</div>
+          <div class="row-sub muted">{t("settings.pinOrderSub")}</div>
         </div>
-        <span class="switch">
-          <input
-            type="checkbox"
-            checked={settings.allowLan}
-            onchange={(e) => settings.setAllowLan((e.currentTarget as HTMLInputElement).checked)}
-          />
-          <span class="slider"></span>
-        </span>
-      </label>
+        <Dropdown
+          value={settings.pinOrder}
+          options={pinOrderOptions}
+          onChange={(v) => settings.setPinOrder(v as PinOrder)}
+          ariaLabel={t("settings.pinOrder")}
+        />
+      </div>
       <!-- Tray / window / autostart are desktop concepts; hide on Android. -->
       {#if !isAndroid}
       <label class="row">
@@ -391,6 +363,53 @@
         </span>
       </label>
       {/if}
+    </div>
+  </section>
+
+  <!-- How the tunnel itself works. -->
+  <section>
+    <h2>{t("settings.vpn")}</h2>
+    <div class="list">
+      <div class="row">
+        <div class="row-text">
+          <div class="row-title">{t("settings.vpnMode")}</div>
+          <div class="row-sub muted">{modeSub}</div>
+        </div>
+        <Dropdown
+          value={settings.vpnMode}
+          options={modeOptions}
+          onChange={(v) => settings.setVpnMode(v as VpnMode)}
+          ariaLabel={t("settings.vpnMode")}
+        />
+      </div>
+      <label class="row">
+        <div class="row-text">
+          <div class="row-title">{t("settings.killswitch")}</div>
+          <div class="row-sub muted">{t("settings.killswitchSub")}</div>
+        </div>
+        <span class="switch">
+          <input
+            type="checkbox"
+            checked={settings.killswitch}
+            onchange={(e) => settings.setKillswitch((e.currentTarget as HTMLInputElement).checked)}
+          />
+          <span class="slider"></span>
+        </span>
+      </label>
+      <label class="row">
+        <div class="row-text">
+          <div class="row-title">{t("settings.allowLan")}</div>
+          <div class="row-sub muted">{t("settings.allowLanSub")}</div>
+        </div>
+        <span class="switch">
+          <input
+            type="checkbox"
+            checked={settings.allowLan}
+            onchange={(e) => settings.setAllowLan((e.currentTarget as HTMLInputElement).checked)}
+          />
+          <span class="slider"></span>
+        </span>
+      </label>
       <div class="row">
         <div class="row-text">
           <div class="row-title">{t("settings.pingMethod")}</div>
@@ -405,38 +424,22 @@
       </div>
       <div class="row">
         <div class="row-text">
-          <div class="row-title">{t("settings.hideLocations")}</div>
-          <div class="row-sub muted">{t("settings.hideLocationsSub")}</div>
-        </div>
-        <Dropdown
-          value={settings.hideLocations}
-          options={hideModeOptions}
-          onChange={(v) => settings.setHideLocations(v as HideLocationsMode)}
-          ariaLabel={t("settings.hideLocations")}
-        />
-      </div>
-      <div class="row">
-        <div class="row-text">
-          <div class="row-title">{t("settings.pinOrder")}</div>
-          <div class="row-sub muted">{t("settings.pinOrderSub")}</div>
-        </div>
-        <Dropdown
-          value={settings.pinOrder}
-          options={pinOrderOptions}
-          onChange={(v) => settings.setPinOrder(v as PinOrder)}
-          ariaLabel={t("settings.pinOrder")}
-        />
-      </div>
-      <div class="row">
-        <div class="row-text">
           <div class="row-title">{t("settings.pingConcurrency")}</div>
           <div class="row-sub muted">{t("settings.pingConcurrencySub")}</div>
         </div>
-        <Dropdown
-          value={String(settings.pingConcurrency)}
-          options={pingConcurrencyOptions}
-          onChange={(v) => settings.setPingConcurrency(Number(v))}
-          ariaLabel={t("settings.pingConcurrency")}
+        <input
+          class="num-input"
+          type="number"
+          min="0"
+          max="256"
+          step="1"
+          inputmode="numeric"
+          value={settings.pingConcurrency}
+          aria-label={t("settings.pingConcurrency")}
+          onchange={(e) =>
+            settings.setPingConcurrency(
+              Number((e.currentTarget as HTMLInputElement).value),
+            )}
         />
       </div>
       <div class="row">
@@ -917,6 +920,18 @@
   }
   .row-title { font-size: 14px; }
   .row-sub { font-size: 12px; margin-top: 2px; }
+  .num-input {
+    width: 72px;
+    padding: 7px 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-elev-2);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
 
   /* ---------- version-picker modal ---------- */
   .modal-backdrop {

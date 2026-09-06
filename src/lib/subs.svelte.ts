@@ -374,10 +374,13 @@ class SubsStore {
     this.persist();
   }
 
-  /** Pinned subscriptions first, otherwise insertion order (Array.sort is
-   *  stable, so unpinned entries keep their relative order). */
+  /** Pinned subscription first, then the manually added configurations (they are
+   *  the things the user reaches for when a provider fleet is down), then every
+   *  other subscription. Array.sort is stable, so each group keeps its own order. */
   get ordered(): Subscription[] {
-    return [...this.list].sort((a, b) => Number(b.pinned) - Number(a.pinned));
+    const rank = (sub: Subscription): number =>
+      sub.pinned ? 0 : this.isManualCard(sub) ? 1 : 2;
+    return [...this.list].sort((a, b) => rank(a) - rank(b));
   }
 
   togglePin(subId: string): void {

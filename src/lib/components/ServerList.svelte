@@ -2,7 +2,7 @@
   import FlagIcon from "./FlagIcon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { isAndroid } from "$lib/platform";
-  import { placePopup, portal } from "$lib/popup";
+  import { placeAtPoint, portal } from "$lib/popup";
   import { createLongPress } from "$lib/long-press";
   import type { LocationAction } from "$lib/location-actions";
   import type { PingState, ServerEntry } from "$lib/subs.svelte";
@@ -31,7 +31,7 @@
   let openFor = $state<string | null>(null);
   let items = $state<LocationAction[]>([]);
   let target = $state<ServerEntry | null>(null);
-  let pos = $state({ top: 0, right: 0 });
+  let pos = $state({ top: 0, left: 0 });
 
   const hiddenSet = $derived(new Set(hiddenIds));
 
@@ -49,20 +49,18 @@
   let pendingRow: { server: ServerEntry; anchor: HTMLElement } | null = null;
 
   const press = createLongPress({
-    onTrigger: () => {
+    onTrigger: (point) => {
       if (!pendingRow) return;
-      openAt(pendingRow.server, pendingRow.anchor);
+      openAt(pendingRow.server, point);
     },
   });
 
-  function openAt(server: ServerEntry, anchor: HTMLElement): void {
+  /** The menu opens AT the pointer: its top-left corner is where the finger or
+   *  the cursor is, flipping to the left/above when there is no room. */
+  function openAt(server: ServerEntry, point: { x: number; y: number }): void {
     target = server;
     items = actionsFor(server);
-    pos = placePopup(
-      anchor.getBoundingClientRect(),
-      220,
-      items.length * 37 + 8,
-    );
+    pos = placeAtPoint(point.x, point.y, 220, items.length * 37 + 8);
     openFor = server.id;
     openedAt = Date.now();
   }
@@ -77,8 +75,7 @@
   function handleContextmenu(event: MouseEvent, server: ServerEntry) {
     if (isAndroid) return;
     event.preventDefault();
-    const anchor = event.currentTarget as HTMLElement;
-    openAt(server, anchor);
+    openAt(server, { x: event.clientX, y: event.clientY });
   }
 
   function handleKeydown(event: KeyboardEvent, server: ServerEntry) {
@@ -86,7 +83,8 @@
     if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10"))
       return;
     event.preventDefault();
-    openAt(server, event.currentTarget as HTMLElement);
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    openAt(server, { x: rect.left, y: rect.bottom });
   }
 
   // Android: a press opens the menu after a delay, and dies the moment the list
@@ -207,10 +205,9 @@
     class:loc-menu--animated={isAndroid}
     role="menu"
     use:portal
-    style="top: {pos.top}px; right: {pos.right}px;"
+    style="top: {pos.top}px; left: {pos.left}px;"
     bind:this={menuEl}
   >
-    <div class="loc-menu-title">{target.name}</div>
     {#each items as action (action)}
       <button
         role="menuitem"
@@ -323,7 +320,6 @@
        the left edge in Android WebView instead of shrinking to its content. */
     width: 220px;
     max-width: calc(100vw - 24px);
-    left: auto;
     background: var(--bg-elev-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -343,14 +339,6 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .loc-menu--animated { animation: none; }
-  }
-  .loc-menu-title {
-    font-size: 11px;
-    color: var(--text-dim);
-    padding: 6px 10px 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .loc-menu-item {
     width: 100%;

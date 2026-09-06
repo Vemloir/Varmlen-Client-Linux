@@ -97,6 +97,7 @@ vi.mock("$lib/platform", () => ({ isAndroid: false }));
 vi.mock("$lib/modal-lifecycle", () => ({ releaseActiveControl: vi.fn() }));
 vi.mock("$lib/popup", () => ({
   placePopup: vi.fn(() => ({ top: 0, right: 0 })),
+  placeAtPoint: vi.fn(() => ({ top: 0, left: 0 })),
   portal: vi.fn(() => ({ destroy: vi.fn() })),
 }));
 vi.mock("$lib/conn.svelte", () => ({

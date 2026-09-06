@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- The ✕ of a modal closes it on the first click. An icon-only button is clicked
+  on its `<svg>`/`<path>`, and an SVGElement is not an `HTMLElement`, so the
+  modal action resolver threw away every target that was not an HTML element --
+  the ✕ answered only when the click happened to land on the button's own padding
+  instead of the icon, which is why it looked like it worked once in a few tries
+  while the text Cancel button closed instantly.
+- Settings are split into what the app looks like and what the tunnel does:
+  Interface (language, hiding, pinned order, tray and autostart) and VPN (mode,
+  kill switch, LAN, ping method, simultaneous pings, subscription user agent and
+  auto-update). Simultaneous pings is a number you type, not a list of five
+  choices, and `0` means no limit without an infinity glyph next to it.
+- Manual configurations are ordered between the pinned subscription and the rest.
+- The location menu opens at the cursor -- its top-left corner where the pointer
+  is, flipping to the left of the cursor and above it when there is no room --
+  and no longer repeats the location name inside itself.
+- A refresh of one subscription can no longer move the selection into another
+  card. The endpoint and label fallbacks used to search every card when the
+  chosen location's endpoint had rotated, so with the same endpoint sitting in two
+  cards (a pasted link and a provider profile, or the same subscription imported
+  twice) the choice landed in the other card. The card the user picked from now
+  owns the choice while it exists; only when that card is removed may the choice
+  be re-found elsewhere, and a location that is simply gone still reports itself
+  as gone instead of being replaced.
 - Locations got their own menu, and hiding is now a real thing. The right mouse
   button on a location (the menu key, Shift+F10, or a long press on a touch
   build) opens ping, rename, pin and hide -- until now a location could only be

@@ -139,4 +139,50 @@ describe("subscription location selection", () => {
   it("compares labels ignoring flag, spacing and case", () => {
     expect(normalizeLocationLabel("🇺🇸 США")).toBe(normalizeLocationLabel(" сша "));
   });
+
+  it("never moves the choice into another card when the endpoint rotated", () => {
+    // The same old endpoint still lives in a second card (a pasted link, a
+    // duplicated import). A global endpoint search would jump there.
+    const home = sub("proxen", [server("p-1", "🇺🇸 США", "oanql1.example.com")]);
+    const other = sub("paste", [server("m-1", "🇺🇸 США", "old.example.com")]);
+    const next = resolveSelection(subs([home, other]), {
+      serverId: "p-old",
+      key: serverKey(server("x", "🇺🇸 США", "old.example.com")),
+      subId: "proxen",
+      label: "🇺🇸 США",
+    });
+
+    expect(next.serverId).toBe("p-1");
+    expect(next.subId).toBe("proxen");
+    expect(next.lost).toBe(false);
+  });
+
+  it("reports a loss instead of picking the same label in another card", () => {
+    const home = sub("proxen", [server("p-1", "🇩🇪 Германия", "ksakj2.example.com")]);
+    const other = sub("paste", [server("m-1", "🇺🇸 США", "oanql1.example.com")]);
+    const next = resolveSelection(subs([home, other]), {
+      serverId: "m-old",
+      key: serverKey(server("x", "🇺🇸 США", "old.example.com")),
+      subId: "proxen",
+      label: "🇺🇸 США",
+    });
+
+    expect(next.serverId).toBeNull();
+    expect(next.lost).toBe(true);
+    // The identity survives, so a later update that brings it back re-picks it.
+    expect(next.label).toBe("🇺🇸 США");
+  });
+
+  it("re-finds the choice in another card once its own card is gone", () => {
+    const other = sub("paste", [server("m-1", "🇺🇸 США", "oanql1.example.com")]);
+    const next = resolveSelection(subs([other]), {
+      serverId: "p-old",
+      key: serverKey(other.servers[0]),
+      subId: "proxen",
+      label: "🇺🇸 США",
+    });
+
+    expect(next.serverId).toBe("m-1");
+    expect(next.subId).toBe("paste");
+  });
 });
