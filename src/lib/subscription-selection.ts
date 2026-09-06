@@ -25,6 +25,16 @@ export interface SelectableServer {
     uuid: string;
     password?: string | null;
     method?: string | null;
+    /** Providers put several locations on ONE endpoint and separate them by
+     *  transport, path, SNI or flow. A key without them cannot tell an ordinary
+     *  location from the profile's "auto choice", so they are part of it. */
+    transport?: string | null;
+    security?: string | null;
+    sni?: string | null;
+    flow?: string | null;
+    path?: string | null;
+    public_key?: string | null;
+    short_id?: string | null;
   } | null;
 }
 
@@ -59,6 +69,13 @@ export function serverKey(srv: SelectableServer): string {
         srv.raw.uuid,
         srv.raw.password ?? "",
         srv.raw.method ?? "",
+        srv.raw.transport ?? "",
+        srv.raw.security ?? "",
+        srv.raw.sni ?? "",
+        srv.raw.flow ?? "",
+        srv.raw.path ?? "",
+        srv.raw.public_key ?? "",
+        srv.raw.short_id ?? "",
       ].join("\u0000")
     : srv.id;
 }
@@ -116,13 +133,25 @@ export function resolveSelection(
   const byId = pool.find(({ srv }) => srv.id === current.serverId);
   if (byId) return chosen(byId.sub, byId.srv);
 
+  const wanted = current.label ? normalizeLocationLabel(current.label) : null;
+
   if (current.key) {
-    const match = pool.find(({ srv }) => serverKey(srv) === current.key);
-    if (match) return chosen(match.sub, match.srv);
+    const matches = pool.filter(({ srv }) => serverKey(srv) === current.key);
+    if (matches.length > 0) {
+      // Several locations of one provider can share an endpoint exactly and be
+      // told apart only by their label (an "auto choice" profile in front of the
+      // same servers). Taking the first match in that case is how a refresh moved
+      // the user from the location he picked onto the balancer.
+      const match =
+        matches.length === 1 || wanted === null
+          ? matches[0]
+          : (matches.find(({ srv }) => normalizeLocationLabel(srv.name) === wanted) ??
+            matches[0]);
+      return chosen(match.sub, match.srv);
+    }
   }
 
-  if (current.label) {
-    const wanted = normalizeLocationLabel(current.label);
+  if (wanted !== null) {
     const match = pool.find(
       ({ srv }) => normalizeLocationLabel(srv.name) === wanted,
     );

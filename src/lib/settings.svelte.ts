@@ -51,9 +51,18 @@ const DEFAULTS: Persisted = {
 const LOG_LEVELS: LogLevel[] = ["debug", "warn", "error"];
 const HIDE_MODES: HideLocationsMode[] = [
   "untilManualRefresh",
-  "always",
-  "off",
+  "untilRefresh",
+  "never",
 ];
+
+/** Earlier builds offered `always` and `off`. `always` is now `never`, and "do
+ *  not hide anything" is not a hiding mode, so it falls back to the default. */
+function migrateHideMode(value: unknown): HideLocationsMode {
+  if (value === "always") return "never";
+  return HIDE_MODES.includes(value as HideLocationsMode)
+    ? (value as HideLocationsMode)
+    : DEFAULTS.hideLocations;
+}
 const PIN_ORDERS: PinOrder[] = ["newestLast", "newestFirst"];
 
 function load(): Persisted {
@@ -76,9 +85,7 @@ function load(): Persisted {
       ),
       subscriptionAutoUpdate:
         parsed.subscriptionAutoUpdate ?? DEFAULTS.subscriptionAutoUpdate,
-      hideLocations: HIDE_MODES.includes(parsed.hideLocations as HideLocationsMode)
-        ? (parsed.hideLocations as HideLocationsMode)
-        : DEFAULTS.hideLocations,
+      hideLocations: migrateHideMode(parsed.hideLocations),
       pinOrder: PIN_ORDERS.includes(parsed.pinOrder as PinOrder)
         ? (parsed.pinOrder as PinOrder)
         : DEFAULTS.pinOrder,
@@ -141,7 +148,7 @@ class SettingsStore {
     this.persist();
   }
   setHideLocations(v: HideLocationsMode): void {
-    this.hideLocations = HIDE_MODES.includes(v) ? v : DEFAULTS.hideLocations;
+    this.hideLocations = migrateHideMode(v);
     this.persist();
   }
   setPinOrder(v: PinOrder): void {

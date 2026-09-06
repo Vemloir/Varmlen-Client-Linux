@@ -159,8 +159,8 @@
 
   const hideModeOptions = $derived([
     { value: "untilManualRefresh", label: t("settings.hideMode.untilManualRefresh") },
-    { value: "always", label: t("settings.hideMode.always") },
-    { value: "off", label: t("settings.hideMode.off") },
+    { value: "untilRefresh", label: t("settings.hideMode.untilRefresh") },
+    { value: "never", label: t("settings.hideMode.never") },
   ]);
 
   const pinOrderOptions = $derived([
@@ -921,16 +921,28 @@
   .row-title { font-size: 14px; }
   .row-sub { font-size: 12px; margin-top: 2px; }
   .num-input {
-    width: 72px;
+    width: 54px;
     padding: 7px 8px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border);
-    background: var(--bg-elev-2);
+    /* Darker than the row so it survives the row's own hover background. */
+    background: var(--bg);
     color: var(--text);
     font: inherit;
     font-size: 13px;
     text-align: right;
     font-variant-numeric: tabular-nums;
+  }
+  /* A stepper on "how many xray processes" is 43 clicks to 43, and the arrows
+     take more room than the number. */
+  .num-input::-webkit-outer-spin-button,
+  .num-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .num-input {
+    -moz-appearance: textfield;
+    appearance: textfield;
   }
 
   /* ---------- version-picker modal ---------- */
@@ -983,11 +995,14 @@
 
   /* The Versions button on the core row carries its own icon. */
   .versions-btn {
-    background: var(--bg-elev-2);
-    border: none;
+    /* Same chip as the other settings controls: darker than the row, so a hovered
+       row (--bg-elev-2) does not swallow it. */
+    background: var(--bg);
+    border: 1px solid var(--border);
   }
   .versions-btn:hover:not(:disabled) {
     background: var(--bg-elev-3);
+    border-color: var(--border-strong);
   }
   .btn-ico {
     margin-right: 6px;

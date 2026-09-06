@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import FlagIcon from "./FlagIcon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { isAndroid } from "$lib/platform";
@@ -56,13 +57,22 @@
   });
 
   /** The menu opens AT the pointer: its top-left corner is where the finger or
-   *  the cursor is, flipping to the left/above when there is no room. */
-  function openAt(server: ServerEntry, point: { x: number; y: number }): void {
+   *  the cursor is, flipping to the left/above when there is no room. It is placed
+   *  twice -- once from an estimate, then from its real size, because the width
+   *  depends on the language and a fixed 220px wastes the difference. */
+  async function openAt(
+    server: ServerEntry,
+    point: { x: number; y: number },
+  ): Promise<void> {
     target = server;
     items = actionsFor(server);
-    pos = placeAtPoint(point.x, point.y, 220, items.length * 37 + 8);
+    pos = placeAtPoint(point.x, point.y, 180, items.length * 37 + 8);
     openFor = server.id;
     openedAt = Date.now();
+    await tick();
+    if (openFor !== server.id || !menuEl) return;
+    const rect = menuEl.getBoundingClientRect();
+    pos = placeAtPoint(point.x, point.y, rect.width, rect.height);
   }
 
   let openedAt = 0;
@@ -318,8 +328,11 @@
     position: fixed;
     /* Explicit width: a fixed element with right set + width:auto stretches to
        the left edge in Android WebView instead of shrinking to its content. */
-    width: 220px;
-    max-width: calc(100vw - 24px);
+    /* Content width: a Russian menu and an English one are not the same width,
+       and a fixed one pays for the difference in empty space. */
+    width: max-content;
+    min-width: 148px;
+    max-width: min(260px, calc(100vw - 24px));
     background: var(--bg-elev-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);

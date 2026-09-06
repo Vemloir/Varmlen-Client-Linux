@@ -425,7 +425,7 @@ class SubsStore {
    *  list can dim them while the card reveals them. */
   hiddenLocationIds(sub: Subscription): string[] {
     const hidden = sub.hiddenKeys ?? [];
-    if (settings.hideLocations === "off" || hidden.length === 0) return [];
+    if (hidden.length === 0) return [];
     return sub.servers
       .filter((s) => hidden.includes(serverKey(s)))
       .map((s) => s.id);
@@ -648,7 +648,10 @@ class SubsStore {
       // "Hidden until I refresh myself": an explicit Refresh is the user asking
       // for the provider's current list, so hidden locations come back. The
       // background refresh is not, and keeps them hidden.
-      if (manual && settings.hideLocations === "untilManualRefresh") {
+      if (
+        settings.hideLocations === "untilRefresh" ||
+        (manual && settings.hideLocations === "untilManualRefresh")
+      ) {
         this.clearHiddenLocations(subId);
       }
       // The server IDs were just regenerated — re-resolve the selection from its

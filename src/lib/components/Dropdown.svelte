@@ -151,8 +151,10 @@
     align-items: center;
     gap: 6px;
     padding: 6px 8px 6px 12px;
-    background: var(--bg-elev-2);
-    border: none;
+    /* One step DARKER than the row, not the same tone: a hovered settings row is
+       --bg-elev-2, and a control painted --bg-elev-2 on top of it vanished. */
+    background: var(--bg);
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     font-size: 13px;
     color: var(--text);
@@ -167,7 +169,8 @@
   }
   @media (hover: hover) {
     .trigger:hover {
-      background: var(--bg-elev-2);
+      background: var(--bg-elev-3);
+      border-color: var(--border-strong);
     }
   }
   .trigger-text {

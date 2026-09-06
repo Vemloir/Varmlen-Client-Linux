@@ -33,7 +33,7 @@ describe("card surface contract", () => {
     );
   });
 
-  it("keeps the View log hover surface square without changing dropdown rounding", () => {
+  it("keeps settings controls readable on a hovered row", () => {
     const settings = read("../routes/settings/+page.svelte");
     const dropdown = read("./components/Dropdown.svelte");
 
@@ -41,11 +41,20 @@ describe("card surface contract", () => {
     expect(dropdown).not.toMatch(
       /\.trigger\[aria-expanded="true"\]\s*\{[^}]*border-top-left-radius:\s*0;/s,
     );
+    // A hovered settings row is --bg-elev-2. A control painted the same tone on
+    // top of it disappears, so controls are a darker chip with a border and gain
+    // one step on their own hover.
     expect(dropdown).toMatch(
-      /\.trigger\s*\{[^}]*background:\s*var\(--bg-elev-2\);[^}]*border:\s*none;/s,
+      /\.trigger\s*\{[^}]*background:\s*var\(--bg\);[^}]*border:\s*1px solid var\(--border\);/s,
+    );
+    expect(dropdown).toMatch(
+      /\.trigger:hover\s*\{[^}]*background:\s*var\(--bg-elev-3\);/s,
     );
     expect(settings).toMatch(
-      /\.versions-btn\s*\{[^}]*background:\s*var\(--bg-elev-2\);[^}]*border:\s*none;/s,
+      /\.versions-btn\s*\{[^}]*background:\s*var\(--bg\);[^}]*border:\s*1px solid var\(--border\);/s,
+    );
+    expect(settings).toMatch(
+      /\.num-input\s*\{[^}]*background:\s*var\(--bg\);/s,
     );
   });
 

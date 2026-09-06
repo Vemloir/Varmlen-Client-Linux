@@ -173,6 +173,40 @@ describe("subscription location selection", () => {
     expect(next.label).toBe("🇺🇸 США");
   });
 
+  it("keeps the chosen location when every entry shares one endpoint", () => {
+    // The AegisVPN shape: four locations and an "auto choice" profile in front of
+    // the SAME endpoint, told apart by label only. A refresh regenerates the ids,
+    // and matching the key by "first hit" landed the user on Автовыбор.
+    const shared = sub("aegis", [
+      server("auto", "⚡ Автовыбор", "same.example.com"),
+      server("nl", "🇳🇱 Нидерланды", "same.example.com"),
+      server("de", "🇩🇪 Германия", "same.example.com"),
+    ]);
+    const next = resolveSelection(subs([shared]), {
+      serverId: "stale-id",
+      key: serverKey(shared.servers[1]),
+      subId: "aegis",
+      label: "🇳🇱 Нидерланды",
+    });
+
+    expect(next.serverId).toBe("nl");
+    expect(next.lost).toBe(false);
+  });
+
+  it("tells locations apart when only the transport differs", () => {
+    const withPath = { ...server("a", "Первая", "one.example.com"), raw: {
+      protocol: "vless", host: "one.example.com", port: 443,
+      uuid: "uuid-one.example.com", password: null, method: null,
+      transport: "ws", security: "tls", sni: "one.example.com", path: "/ws",
+    }};
+    const plain = { ...server("b", "Вторая", "one.example.com"), raw: {
+      protocol: "vless", host: "one.example.com", port: 443,
+      uuid: "uuid-one.example.com", password: null, method: null,
+      transport: "tcp", security: "tls", sni: "one.example.com", path: null,
+    }};
+    expect(serverKey(withPath)).not.toBe(serverKey(plain));
+  });
+
   it("re-finds the choice in another card once its own card is gone", () => {
     const other = sub("paste", [server("m-1", "🇺🇸 США", "oanql1.example.com")]);
     const next = resolveSelection(subs([other]), {

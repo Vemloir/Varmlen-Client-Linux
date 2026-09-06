@@ -47,7 +47,7 @@ describe("location menu", () => {
         fromSubscription: false,
         hidden: false,
         pinned: true,
-        hideMode: "always",
+        hideMode: "never",
       }),
     ).toEqual(["ping", "rename", "unpin", "delete"]);
   });
@@ -58,20 +58,22 @@ describe("location menu", () => {
         fromSubscription: true,
         hidden: true,
         pinned: true,
-        hideMode: "always",
+        hideMode: "never",
       }),
     ).toEqual(["ping", "rename", "unpin", "unhide"]);
   });
 
-  it("offers no hide at all when hiding is switched off", () => {
-    expect(
-      locationActions({
-        fromSubscription: true,
-        hidden: false,
-        pinned: false,
-        hideMode: "off",
-      }),
-    ).toEqual(["ping", "rename", "pin"]);
+  it("offers hide in every mode -- the modes differ in what restores it", () => {
+    for (const hideMode of ["untilManualRefresh", "untilRefresh", "never"] as const) {
+      expect(
+        locationActions({
+          fromSubscription: true,
+          hidden: false,
+          pinned: false,
+          hideMode,
+        }),
+      ).toContain("hide");
+    }
   });
 });
 
@@ -85,12 +87,16 @@ describe("hidden locations", () => {
     expect(hiddenCount(servers, keyOf, hiddenKeys, "untilManualRefresh")).toBe(1);
   });
 
-  it("shows everything again when hiding is switched off, but keeps the list", () => {
+  it("keeps the location hidden in every mode", () => {
     const servers = [row("a"), row("b")];
     const hiddenKeys = [servers[1].key];
-    expect(isHiddenLocation(servers[1].key, hiddenKeys, "off", false)).toBe(false);
-    expect(order(servers, { hiddenKeys, hideMode: "off" }).visible).toHaveLength(2);
-    expect(hiddenCount(servers, keyOf, hiddenKeys, "off")).toBe(0);
+    for (const hideMode of ["untilManualRefresh", "untilRefresh", "never"] as const) {
+      expect(isHiddenLocation(servers[1].key, hiddenKeys, hideMode, false)).toBe(
+        true,
+      );
+      expect(order(servers, { hiddenKeys, hideMode }).visible).toHaveLength(1);
+      expect(hiddenCount(servers, keyOf, hiddenKeys, hideMode)).toBe(1);
+    }
   });
 
   it("reveals hidden locations on request without un-hiding them", () => {
@@ -100,7 +106,7 @@ describe("hidden locations", () => {
     expect(out.visible.map((s) => s.id)).toEqual(["a", "b"]);
     expect(out.hidden).toHaveLength(0);
     // Still counted, so the card keeps offering the way to hide them again.
-    expect(hiddenCount(servers, keyOf, hiddenKeys, "always")).toBe(1);
+    expect(hiddenCount(servers, keyOf, hiddenKeys, "never")).toBe(1);
   });
 });
 

@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- Refreshing a subscription no longer throws the user onto "auto choice". Several
+  providers put every location on ONE endpoint (`host:port:uuid`) and separate
+  them only by transport, path, SNI or flow -- or by nothing at all, when an
+  "auto choice" profile sits in front of the same four servers. The location key
+  carried protocol, host, port, uuid, password and method, so all five entries
+  hashed the same, and after a refresh regenerates the entry ids the resolver took
+  the FIRST key match -- the balancer, which providers list first. The key now
+  includes transport, security, SNI, flow, path and the WireGuard-ish identifiers,
+  and an ambiguous key match is broken by the label the user chose, not by list
+  order. Persisted keys from earlier builds stop matching once, which resolves the
+  selection by label inside the same card.
+- Hide-locations modes are three real choices instead of one and a half: "Until I
+  refresh it myself" (default), "Until the next update" and "Until I show it
+  again". "Never hide" was not a hiding mode; stored `always` migrates to `never`
+  and stored `off` to the default.
+- Settings controls are a darker chip with a border instead of the row's own tone:
+  a hovered row is `--bg-elev-2`, and a dropdown painted `--bg-elev-2` on it simply
+  disappeared. Same for the versions button and the new number field, which is also
+  narrower and has its steppers removed (43 clicks to reach 43, and the arrows ate
+  more room than the value). The location menu now sizes to its content instead of
+  a fixed 220px, so an English menu does not pay for a Russian one; it is placed
+  twice, from an estimate and then from its real box.
 - The ✕ of a modal closes it on the first click. An icon-only button is clicked
   on its `<svg>`/`<path>`, and an SVGElement is not an `HTMLElement`, so the
   modal action resolver threw away every target that was not an HTML element --
