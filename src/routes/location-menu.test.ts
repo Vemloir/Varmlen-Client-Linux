@@ -139,6 +139,7 @@ vi.mock("$lib/subs.svelte", () => ({
     isManualCard: vi.fn(fixtures.isManualCard),
     visibleLocations: vi.fn((sub: { servers: unknown[] }) => sub.servers),
     hiddenLocationIds: vi.fn(() => []),
+    locationPinnedIds: vi.fn(() => []),
     hiddenCount: vi.fn(() => 0),
     locationActionsFor: vi.fn((sub: { url: string }) =>
       fixtures.isManualCard(sub)
@@ -163,6 +164,7 @@ vi.mock("$lib/subs.svelte", () => ({
 }));
 
 import Page from "./+page.svelte";
+import { subs } from "$lib/subs.svelte";
 
 afterEach(() => {
   cleanup();
@@ -231,6 +233,13 @@ describe("location menu", () => {
       "cfg-1",
       "server-manual",
     );
+  });
+
+  it("marks a pinned location, like a pinned card does", () => {
+    vi.mocked(subs.locationPinnedIds).mockReturnValueOnce(["server-sub"]);
+    const view = render(Page);
+    const card = cardOf(view.getByText("Proxen") as HTMLElement);
+    expect(card.querySelector(".pin-mark")).not.toBeNull();
   });
 
   it("pings a single location from the menu", async () => {

@@ -431,6 +431,16 @@ class SubsStore {
       .map((s) => s.id);
   }
 
+  /** Pinned endpoint keys resolved to the entries they match right now, so the
+   *  row can show the same pin mark a pinned card shows. */
+  locationPinnedIds(sub: Subscription): string[] {
+    const pinned = sub.pinnedLocations ?? {};
+    if (Object.keys(pinned).length === 0) return [];
+    return sub.servers
+      .filter((s) => serverKey(s) in pinned)
+      .map((s) => s.id);
+  }
+
   isLocationHidden(sub: Subscription, server: ServerEntry): boolean {
     return (sub.hiddenKeys ?? []).includes(serverKey(server));
   }

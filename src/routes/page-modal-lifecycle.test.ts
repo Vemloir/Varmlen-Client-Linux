@@ -133,6 +133,7 @@ vi.mock("$lib/subs.svelte", () => ({
     isManualCard: vi.fn(() => false),
     visibleLocations: vi.fn(() => fixtures.servers),
     hiddenLocationIds: vi.fn(() => []),
+    locationPinnedIds: vi.fn(() => []),
     hiddenCount: vi.fn(() => 0),
     locationActionsFor: vi.fn(() => ["ping", "rename", "pin", "hide"]),
     toggleHideLocation: vi.fn(),

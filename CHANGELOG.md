@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- A pinned location goes to the TOP of the list and carries the same pin mark a
+  pinned card carries -- a pin that sinks to the bottom is not a pin. The setting
+  still orders the pinned ones among themselves.
+- Settings controls are painted in the card's own background with no outline: a
+  hovered row is `--bg-elev-2`, so the card colour reads on both row states. The
+  number field is a square (as wide as it is tall). The location menu is finally
+  as wide as its longest item and no wider -- `width: max-content` with the
+  `min-width` that was still holding it open removed, and items on one line.
 - Refreshing a subscription no longer throws the user onto "auto choice". Several
   providers put every location on ONE endpoint (`host:port:uuid`) and separate
   them only by transport, path, SNI or flow -- or by nothing at all, when an

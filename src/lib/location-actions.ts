@@ -78,8 +78,8 @@ export interface OrderedLocations<T> {
 }
 
 /** Split and order the list: hidden locations drop out, pinned locations move to
- *  the pinned block (by pin time, direction configurable), everything else keeps
- *  the provider's order. */
+ *  the TOP of the list (ordered by pin time, direction configurable), everything
+ *  else keeps the provider's order. */
 export function orderLocations<T>(
   servers: readonly T[],
   opts: {
@@ -112,7 +112,8 @@ export function orderLocations<T>(
     return opts.pinOrder === "newestFirst" ? tb - ta : ta - tb;
   });
 
-  return { visible: [...rest, ...pinned], hidden };
+  // Pinned first, like the pinned card above them.
+  return { visible: [...pinned, ...rest], hidden };
 }
 
 /** How many hidden locations to advertise on the card. */

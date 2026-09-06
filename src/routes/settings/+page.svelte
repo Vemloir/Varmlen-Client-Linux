@@ -921,12 +921,14 @@
   .row-title { font-size: 14px; }
   .row-sub { font-size: 12px; margin-top: 2px; }
   .num-input {
-    width: 54px;
-    padding: 7px 8px;
+    /* A square: as wide as it is tall. Card background, no outline. */
+    box-sizing: border-box;
+    width: 32px;
+    height: 32px;
+    padding: 0 6px;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    /* Darker than the row so it survives the row's own hover background. */
-    background: var(--bg);
+    border: none;
+    background: var(--bg-elev);
     color: var(--text);
     font: inherit;
     font-size: 13px;
@@ -995,14 +997,12 @@
 
   /* The Versions button on the core row carries its own icon. */
   .versions-btn {
-    /* Same chip as the other settings controls: darker than the row, so a hovered
-       row (--bg-elev-2) does not swallow it. */
-    background: var(--bg);
-    border: 1px solid var(--border);
+    /* Card background, no outline: readable on a hovered row (--bg-elev-2). */
+    background: var(--bg-elev);
+    border: none;
   }
   .versions-btn:hover:not(:disabled) {
     background: var(--bg-elev-3);
-    border-color: var(--border-strong);
   }
   .btn-ico {
     margin-right: 6px;

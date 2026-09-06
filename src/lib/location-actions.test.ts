@@ -111,17 +111,17 @@ describe("hidden locations", () => {
 });
 
 describe("pinned locations", () => {
-  it("moves pinned locations into their own block, oldest first by default", () => {
+  it("moves pinned locations to the top, oldest first by default", () => {
     const servers = [row("a"), row("b"), row("c"), row("d")];
     const pinnedAt: Record<string, number> = {
       [servers[1].key]: 20,
       [servers[3].key]: 10,
     };
     expect(order(servers, { pinnedAt }).visible.map((s) => s.id)).toEqual([
-      "a",
-      "c",
       "d",
       "b",
+      "a",
+      "c",
     ]);
   });
 
@@ -134,7 +134,7 @@ describe("pinned locations", () => {
     expect(
       order(servers, { pinnedAt, pinOrder: "newestFirst" })
         .visible.map((s) => s.id),
-    ).toEqual(["a", "c", "b", "d"]);
+    ).toEqual(["b", "d", "a", "c"]);
   });
 
   it("keeps a pinned location hidden while it is hidden", () => {

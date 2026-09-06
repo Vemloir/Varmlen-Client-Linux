@@ -13,6 +13,7 @@
     selectedServerId,
     pings,
     hiddenIds = [],
+    pinnedIds = [],
     onSelect,
     onDetails,
     actionsFor,
@@ -23,6 +24,9 @@
     pings: Record<string, PingState>;
     /** Entries the user hid; rendered dimmed while the card reveals them. */
     hiddenIds?: string[];
+    /** Entries the user pinned: marked like a pinned subscription, and listed
+     *  first. */
+    pinnedIds?: string[];
     onSelect: (id: string) => void;
     onDetails: (server: ServerEntry) => void;
     actionsFor: (server: ServerEntry) => LocationAction[];
@@ -35,6 +39,7 @@
   let pos = $state({ top: 0, left: 0 });
 
   const hiddenSet = $derived(new Set(hiddenIds));
+  const pinnedSet = $derived(new Set(pinnedIds));
 
   const LABELS: Record<LocationAction, () => string> = {
     ping: () => t("menu.ping"),
@@ -183,7 +188,13 @@
       >
         <FlagIcon flag={server.flag ?? ""} />
         <div class="srv-info">
-          <div class="srv-name">{server.name}</div>
+          <div class="srv-name">
+            {#if pinnedSet.has(server.id)}
+              <svg class="pin-mark" width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.134 3.134a5.927 5.927 0 0 1 .16 1.013c.046.702-.032 1.687-.72 2.375a.5.5 0 0 1-.707 0l-2.829-2.828-3.182 3.182c-.195.195-1.219.902-1.414.707-.195-.195.512-1.22.707-1.414l3.182-3.182-2.828-2.829a.5.5 0 0 1 0-.707c.688-.688 1.673-.767 2.375-.72a5.922 5.922 0 0 1 1.013.16l3.134-3.133a2.772 2.772 0 0 1-.04-.461c0-.43.108-1.022.589-1.503a.5.5 0 0 1 .353-.146z" />
+              </svg>
+            {/if}{server.name}
+          </div>
           <div class="srv-tr dim">{server.transport}</div>
         </div>
       </button>
@@ -307,6 +318,11 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .pin-mark {
+    margin-right: 5px;
+    color: var(--text-dim);
+    vertical-align: -1px;
+  }
   .srv-tr {
     font-size: 10px;
     text-transform: uppercase;
@@ -328,11 +344,10 @@
     position: fixed;
     /* Explicit width: a fixed element with right set + width:auto stretches to
        the left edge in Android WebView instead of shrinking to its content. */
-    /* Content width: a Russian menu and an English one are not the same width,
-       and a fixed one pays for the difference in empty space. */
+    /* Content width: as wide as the longest item and no wider. A fixed width (or
+       a generous min-width) makes an English menu pay for a Russian one. */
     width: max-content;
-    min-width: 148px;
-    max-width: min(260px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
     background: var(--bg-elev-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -355,6 +370,7 @@
   }
   .loc-menu-item {
     width: 100%;
+    white-space: nowrap;
     text-align: left;
     padding: 8px 10px;
     border-radius: 6px;

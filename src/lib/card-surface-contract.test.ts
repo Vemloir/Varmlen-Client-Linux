@@ -41,20 +41,19 @@ describe("card surface contract", () => {
     expect(dropdown).not.toMatch(
       /\.trigger\[aria-expanded="true"\]\s*\{[^}]*border-top-left-radius:\s*0;/s,
     );
-    // A hovered settings row is --bg-elev-2. A control painted the same tone on
-    // top of it disappears, so controls are a darker chip with a border and gain
-    // one step on their own hover.
+    // A hovered settings row is --bg-elev-2, so controls keep the card's own
+    // background (--bg-elev) and no outline: readable on both row states.
     expect(dropdown).toMatch(
-      /\.trigger\s*\{[^}]*background:\s*var\(--bg\);[^}]*border:\s*1px solid var\(--border\);/s,
+      /\.trigger\s*\{[^}]*background:\s*var\(--bg-elev\);[^}]*border:\s*none;/s,
     );
     expect(dropdown).toMatch(
       /\.trigger:hover\s*\{[^}]*background:\s*var\(--bg-elev-3\);/s,
     );
     expect(settings).toMatch(
-      /\.versions-btn\s*\{[^}]*background:\s*var\(--bg\);[^}]*border:\s*1px solid var\(--border\);/s,
+      /\.versions-btn\s*\{[^}]*background:\s*var\(--bg-elev\);[^}]*border:\s*none;/s,
     );
     expect(settings).toMatch(
-      /\.num-input\s*\{[^}]*background:\s*var\(--bg\);/s,
+      /\.num-input\s*\{[^}]*background:\s*var\(--bg-elev\);/s,
     );
   });
 

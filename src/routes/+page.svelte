@@ -509,6 +509,7 @@
           selectedServerId={subs.selectedServerId}
           pings={subs.pings}
           hiddenIds={subs.hiddenLocationIds(sub)}
+          pinnedIds={subs.locationPinnedIds(sub)}
           onSelect={(id) => subs.selectServer(id)}
           onDetails={openDetails}
           actionsFor={(server) => subs.locationActionsFor(sub, server)}
