@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+- Locations got their own menu, and hiding is now a real thing. The right mouse
+  button on a location (the menu key, Shift+F10, or a long press on a touch
+  build) opens ping, rename, pin and hide -- until now a location could only be
+  selected or opened, so hiding one junk entry out of a 20-location subscription
+  meant editing the provider's JSON. Hiding and pinning key on the location's
+  ENDPOINT (`protocol:host:port:uuid`), never on the entry id, because a refresh
+  regenerates every id and a provider rotates the endpoint inside a profile: an
+  id-keyed "hidden" list would forget what it hid. How long a hidden location
+  stays hidden is a setting -- until the user refreshes the subscription himself
+  (default; the background refresh keeps them hidden), until he shows it again,
+  or hiding off. Pinned locations move into their own block ordered by the time
+  they were pinned, never by measured latency, with the direction in settings.
+  Revealing hidden locations is per card and temporary, and shows them dimmed
+  without un-hiding anything.
+- A manually added configuration now looks like a subscription minus the things
+  it cannot do: no refresh, no ⋮ menu, no traffic bar, the header keeps only the
+  ping. Nothing fetches such a card, so "update" and provider quota were lies on
+  it. Its locations are DELETED rather than hidden, because nothing regenerates
+  them, and the card that only held the last one goes with it.
+- The list no longer steals the long press from the menu. Text in the location
+  list is not selectable, which is what made Android haptic and show its
+  selection handles on a press, and a press that turned into a scroll is dead for
+  good -- any movement past 10px, any scroll, or a lift before 500ms kills the
+  menu, including on release, so a swipe can never open one. Desktop opens on the
+  right button with no timer at all.
+- Three settings: hide mode, pinned-order direction, and simultaneous pings with
+  `0` meaning no limit. The limit used to be fixed at 4 because every probe is
+  its own short-lived xray process; a 20-location subscription now can be walked
+  in one burst when the user accepts the memory and the server's patience.
+
+  New pure modules `location-actions.ts` (menu contents, hiding, ordering) and
+  `long-press.ts` (the gesture state machine) with 22 tests between them, and
+  `location-menu.test.ts` locking the header and menu per card kind.
+  vitest: 98 passed. svelte-check: 0 errors, 0 warnings.
+
 - Ask a profile's resolver over a transport the proxy actually carries. Full
   JSON profiles hard-wire `8.8.8.8`-style UDP resolvers and the client forces
   every resolver connection through the selected proxy -- the anti-leak

@@ -3,6 +3,7 @@ import {
   normalizeSubscriptionUserAgent,
   type SubscriptionUserAgent,
 } from "./subscription-user-agent";
+import type { HideLocationsMode, PinOrder } from "./location-actions";
 
 export type VpnMode = "tun" | "proxy";
 /** How server latency is measured. `tcp` = raw TCP connect to the endpoint
@@ -23,6 +24,13 @@ interface Persisted {
   /** Identity advertised only while importing/refreshing subscriptions. */
   subscriptionUserAgent: SubscriptionUserAgent;
   subscriptionAutoUpdate: boolean;
+  /** How long a hidden subscription location stays hidden. */
+  hideLocations: HideLocationsMode;
+  /** Order of the pinned locations among themselves. */
+  pinOrder: PinOrder;
+  /** Simultaneous location pings; 0 = no limit (every ping is its own short-lived
+   *  xray process, so an unbounded burst costs memory and CPU). */
+  pingConcurrency: number;
 }
 
 const KEY = "varmlen.settings";
@@ -35,9 +43,18 @@ const DEFAULTS: Persisted = {
   logLevel: "warn",
   subscriptionUserAgent: "varmlen",
   subscriptionAutoUpdate: true,
+  hideLocations: "untilManualRefresh",
+  pinOrder: "newestLast",
+  pingConcurrency: 0,
 };
 
 const LOG_LEVELS: LogLevel[] = ["debug", "warn", "error"];
+const HIDE_MODES: HideLocationsMode[] = [
+  "untilManualRefresh",
+  "always",
+  "off",
+];
+const PIN_ORDERS: PinOrder[] = ["newestLast", "newestFirst"];
 
 function load(): Persisted {
   if (!browser) return DEFAULTS;
@@ -59,6 +76,13 @@ function load(): Persisted {
       ),
       subscriptionAutoUpdate:
         parsed.subscriptionAutoUpdate ?? DEFAULTS.subscriptionAutoUpdate,
+      hideLocations: HIDE_MODES.includes(parsed.hideLocations as HideLocationsMode)
+        ? (parsed.hideLocations as HideLocationsMode)
+        : DEFAULTS.hideLocations,
+      pinOrder: PIN_ORDERS.includes(parsed.pinOrder as PinOrder)
+        ? (parsed.pinOrder as PinOrder)
+        : DEFAULTS.pinOrder,
+      pingConcurrency: sanitizePingConcurrency(parsed.pingConcurrency),
     };
   } catch {
     return DEFAULTS;
@@ -78,6 +102,9 @@ class SettingsStore {
     _initialSettings.subscriptionUserAgent,
   );
   subscriptionAutoUpdate = $state(_initialSettings.subscriptionAutoUpdate);
+  hideLocations = $state<HideLocationsMode>(_initialSettings.hideLocations);
+  pinOrder = $state<PinOrder>(_initialSettings.pinOrder);
+  pingConcurrency = $state<number>(_initialSettings.pingConcurrency);
 
   private persist(): void {
     if (!browser) return;
@@ -92,6 +119,9 @@ class SettingsStore {
         logLevel: this.logLevel,
         subscriptionUserAgent: this.subscriptionUserAgent,
         subscriptionAutoUpdate: this.subscriptionAutoUpdate,
+        hideLocations: this.hideLocations,
+        pinOrder: this.pinOrder,
+        pingConcurrency: this.pingConcurrency,
       }),
     );
   }
@@ -110,6 +140,25 @@ class SettingsStore {
     this.subscriptionAutoUpdate = v;
     this.persist();
   }
+  setHideLocations(v: HideLocationsMode): void {
+    this.hideLocations = HIDE_MODES.includes(v) ? v : DEFAULTS.hideLocations;
+    this.persist();
+  }
+  setPinOrder(v: PinOrder): void {
+    this.pinOrder = PIN_ORDERS.includes(v) ? v : DEFAULTS.pinOrder;
+    this.persist();
+  }
+  setPingConcurrency(v: number): void {
+    this.pingConcurrency = sanitizePingConcurrency(v);
+    this.persist();
+  }
+}
+
+/** `0` means "no limit"; anything unusable falls back to that default. */
+function sanitizePingConcurrency(value: unknown): number {
+  const n = typeof value === "number" ? Math.floor(value) : Number.NaN;
+  if (!Number.isFinite(n) || n < 0) return DEFAULTS.pingConcurrency;
+  return n;
 }
 
 export const settings = new SettingsStore();

@@ -6,6 +6,7 @@ export const MAX_CONCURRENT_LOCATION_PINGS = 4;
 export async function runPingsInParallel<T>(
   locations: readonly T[],
   ping: (location: T) => Promise<void>,
+  limit: number = MAX_CONCURRENT_LOCATION_PINGS,
 ): Promise<void> {
   let next = 0;
   const worker = async () => {
@@ -14,10 +15,10 @@ export async function runPingsInParallel<T>(
       await ping(location);
     }
   };
-  await Promise.all(
-    Array.from(
-      { length: Math.min(MAX_CONCURRENT_LOCATION_PINGS, locations.length) },
-      worker,
-    ),
-  );
+  // `0` (and anything negative) means "no limit": every location gets its own
+  // worker, so the whole subscription is probed at once. The user picks that
+  // trade-off in settings; the default keeps bursts from spawning one xray
+  // process per location.
+  const workers = limit > 0 ? Math.min(limit, locations.length) : locations.length;
+  await Promise.all(Array.from({ length: workers }, worker));
 }

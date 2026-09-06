@@ -28,6 +28,12 @@ import {
   type SelectionIdentity,
 } from "$lib/subscription-selection";
 import { nextRefreshBatch } from "$lib/subscription-refresh";
+import {
+  hiddenCount as countHidden,
+  locationActions as menuForLocation,
+  orderLocations,
+  type LocationAction,
+} from "$lib/location-actions";
 import { runPingsInParallel } from "$lib/ping-scheduler";
 import { measureLocationPing } from "$lib/location-ping";
 export { transportSummary } from "$lib/server-label";
@@ -75,6 +81,13 @@ export interface Subscription {
   collapsed: boolean;
   /** Pinned subscriptions sort to the top of the list. */
   pinned: boolean;
+  /** Endpoint keys (`serverKey`) the user hid from this card. Keys, not entry
+   *  ids: a refresh regenerates every id, so an id-keyed list would forget what
+   *  was hidden. Optional because it did not exist before 0.3.2. */
+  hiddenKeys?: string[];
+  /** Endpoint keys the user pinned, mapped to the time they were pinned. The
+   *  pinned block is ordered by that time, never by measured latency. */
+  pinnedLocations?: Record<string, number>;
   /** Why the last update failed, or null when the last update worked. A failed
    *  update keeps the previous locations, so without this the subscription
    *  simply grows stale with no trace of why. */
@@ -376,6 +389,118 @@ class SubsStore {
     this.persist();
   }
 
+  /** A manually added configuration: nothing fetches it, so it has no refresh,
+   *  no expiry and no quota, and its locations can be deleted for real. */
+  isManualCard(sub: Subscription): boolean {
+    return !isRemoteConfiguration(sub.url);
+  }
+
+  /** The list for the card: hidden locations drop out, pinned ones move into
+   *  their own block ordered by pin time. `revealHidden` shows the hidden ones
+   *  again without un-hiding them. */
+  visibleLocations(sub: Subscription, revealHidden = false): ServerEntry[] {
+    return orderLocations(sub.servers, {
+      keyOf: (server) => serverKey(server),
+      hiddenKeys: sub.hiddenKeys ?? [],
+      pinnedAt: sub.pinnedLocations ?? {},
+      hideMode: settings.hideLocations,
+      revealHidden,
+      pinOrder: settings.pinOrder,
+    }).visible;
+  }
+
+  hiddenCount(sub: Subscription): number {
+    return countHidden(
+      sub.servers,
+      (server) => serverKey(server),
+      sub.hiddenKeys ?? [],
+      settings.hideLocations,
+    );
+  }
+
+  /** Hidden endpoint keys resolved to the entries they match right now, so the
+   *  list can dim them while the card reveals them. */
+  hiddenLocationIds(sub: Subscription): string[] {
+    const hidden = sub.hiddenKeys ?? [];
+    if (settings.hideLocations === "off" || hidden.length === 0) return [];
+    return sub.servers
+      .filter((s) => hidden.includes(serverKey(s)))
+      .map((s) => s.id);
+  }
+
+  isLocationHidden(sub: Subscription, server: ServerEntry): boolean {
+    return (sub.hiddenKeys ?? []).includes(serverKey(server));
+  }
+
+  isLocationPinned(sub: Subscription, server: ServerEntry): boolean {
+    return serverKey(server) in (sub.pinnedLocations ?? {});
+  }
+
+  /** The action set for one location: hide for a subscription, delete for a
+   *  manually added configuration. */
+  locationActionsFor(sub: Subscription, server: ServerEntry): LocationAction[] {
+    return menuForLocation({
+      fromSubscription: !this.isManualCard(sub),
+      hidden: this.isLocationHidden(sub, server),
+      pinned: this.isLocationPinned(sub, server),
+      hideMode: settings.hideLocations,
+    });
+  }
+
+  toggleHideLocation(subId: string, server: ServerEntry): void {
+    const key = serverKey(server);
+    this.list = this.list.map((s) => {
+      if (s.id !== subId) return s;
+      const hidden = s.hiddenKeys ?? [];
+      return {
+        ...s,
+        hiddenKeys: hidden.includes(key)
+          ? hidden.filter((k) => k !== key)
+          : [...hidden, key],
+      };
+    });
+    this.persist();
+  }
+
+  togglePinLocation(subId: string, server: ServerEntry): void {
+    const key = serverKey(server);
+    this.list = this.list.map((s) => {
+      if (s.id !== subId) return s;
+      const pinned = { ...(s.pinnedLocations ?? {}) };
+      if (key in pinned) delete pinned[key];
+      else pinned[key] = Date.now();
+      return { ...s, pinnedLocations: pinned };
+    });
+    this.persist();
+  }
+
+  /** Remove a manually added location for good. When the last one goes, the card
+   *  that only held it goes with it -- a configuration has no other way to be
+   *  deleted, since its card carries no menu. */
+  deleteLocation(subId: string, serverId: string): void {
+    const sub = this.list.find((s) => s.id === subId);
+    if (!sub || !this.isManualCard(sub)) return;
+    const kept = sub.servers.filter((s) => s.id !== serverId);
+    this.list =
+      kept.length === 0
+        ? this.list.filter((s) => s.id !== subId)
+        : this.list.map((s) => (s.id === subId ? { ...s, servers: kept } : s));
+    this.reconcileSelection();
+    this.prunePings();
+    this.persist();
+  }
+
+  /** Restore every hidden location of a card. Called by an explicit Refresh when
+   *  the user chose "hidden until I refresh myself". */
+  clearHiddenLocations(subId: string): void {
+    this.list = this.list.map((s) =>
+      s.id === subId && (s.hiddenKeys?.length ?? 0) > 0
+        ? { ...s, hiddenKeys: [] }
+        : s,
+    );
+    this.persist();
+  }
+
   /** Whether the provider sent any traffic figures — gates the traffic pill, so
    *  a bare config (no quota/usage) doesn't show a meaningless "0B". */
   hasTraffic(sub: Subscription): boolean {
@@ -460,7 +585,11 @@ class SubsStore {
 
   /** false when the subscription still holds what the previous fetch left
    *  behind, so the automatic scheduler can back off instead of re-firing. */
-  async refresh(subId: string, reschedule = true): Promise<boolean> {
+  async refresh(
+    subId: string,
+    reschedule = true,
+    manual = true,
+  ): Promise<boolean> {
     const idx = this.list.findIndex((s) => s.id === subId);
     if (idx < 0) return false;
     const sub = this.list[idx];
@@ -513,6 +642,12 @@ class SubsStore {
             }
           : s,
       );
+      // "Hidden until I refresh myself": an explicit Refresh is the user asking
+      // for the provider's current list, so hidden locations come back. The
+      // background refresh is not, and keeps them hidden.
+      if (manual && settings.hideLocations === "untilManualRefresh") {
+        this.clearHiddenLocations(subId);
+      }
       // The server IDs were just regenerated — re-resolve the selection from its
       // stable key so the chosen location stays chosen.
       this.reconcileSelection();
@@ -631,7 +766,7 @@ class SubsStore {
     for (const id of ids) {
       if (!this.autoRefreshStarted || !settings.subscriptionAutoUpdate) break;
       const atMs = Date.now();
-      const ok = await this.refresh(id, false);
+      const ok = await this.refresh(id, false, false);
       this.autoRefreshAttempts.set(id, { atMs, ok });
     }
     this.rescheduleAutoRefresh();
@@ -771,8 +906,10 @@ class SubsStore {
     const next = { ...this.pings };
     for (const s of servers) next[s.id] = "pinging";
     this.pings = next;
-    await runPingsInParallel(servers, (server) =>
-      this.pingServer(server, method),
+    await runPingsInParallel(
+      servers,
+      (server) => this.pingServer(server, method),
+      settings.pingConcurrency,
     );
   }
 

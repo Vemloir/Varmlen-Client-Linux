@@ -21,6 +21,7 @@
   } from "$lib/location-draft";
 
   import type { Subscription, ServerEntry } from "$lib/subs.svelte";
+  import type { LocationAction } from "$lib/location-actions";
 
   type ModalKind =
     | "none"
@@ -141,6 +142,45 @@
     locationSaveError = null;
     openModal("details");
   }
+  /** Cards whose hidden locations the user is looking at right now. Revealing is
+   *  deliberately temporary and per card: it shows them dimmed without un-hiding
+   *  anything. */
+  let revealedHidden = $state<Set<string>>(new Set());
+
+  function toggleRevealed(subId: string): void {
+    const next = new Set(revealedHidden);
+    if (next.has(subId)) next.delete(subId);
+    else next.add(subId);
+    revealedHidden = next;
+  }
+
+  function locationAction(
+    action: LocationAction,
+    server: ServerEntry,
+    sub: Subscription,
+  ): void {
+    switch (action) {
+      case "ping":
+        void subs.pingServer(server);
+        break;
+      case "rename":
+        // The name lives in the location sheet along with the rest of the entry.
+        openDetails(server);
+        break;
+      case "pin":
+      case "unpin":
+        subs.togglePinLocation(sub.id, server);
+        break;
+      case "hide":
+      case "unhide":
+        subs.toggleHideLocation(sub.id, server);
+        break;
+      case "delete":
+        subs.deleteLocation(sub.id, server.id);
+        break;
+    }
+  }
+
   async function saveLocationDraft(): Promise<void> {
     if (!detailFor) return;
     locationSaveError = null;
@@ -322,6 +362,7 @@
   <main class="scroll fade-y">
 
   {#each subs.ordered as sub (sub.id)}
+    {@const isManual = subs.isManualCard(sub)}
     <section class="sub-card" class:pinned={sub.pinned}>
       <header class="sub-head">
         <button
@@ -358,6 +399,7 @@
           {/if}
         </div>
 
+        {#if !isManual}
         <button
           class="head-btn"
           class:spinning={sub.refreshing}
@@ -369,6 +411,7 @@
             <path d="M21 12a9 9 0 1 1-3.13-6.84M21 4v5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </button>
+        {/if}
         <button
           class="head-btn"
           onclick={() => subs.pingSub(sub.id)}
@@ -382,6 +425,7 @@
             <circle cx="12" cy="12" r="1.4" fill="currentColor" />
           </svg>
         </button>
+        {#if !isManual}
         <div class="menu-wrap">
           <button
             class="head-btn"
@@ -422,9 +466,10 @@
             </div>
           {/if}
         </div>
+        {/if}
       </header>
 
-      {#if subs.hasTraffic(sub) || sub.webPageUrl || sub.supportUrl}
+      {#if !isManual && (subs.hasTraffic(sub) || sub.webPageUrl || sub.supportUrl)}
       <div class="sub-traffic">
         {#if sub.webPageUrl}
           <button class="round-btn" aria-label="Website" onclick={() => open(sub.webPageUrl)}>
@@ -460,12 +505,22 @@
 
       {#if !sub.collapsed}
         <ServerList
-          servers={sub.servers}
+          servers={subs.visibleLocations(sub, revealedHidden.has(sub.id))}
           selectedServerId={subs.selectedServerId}
           pings={subs.pings}
+          hiddenIds={subs.hiddenLocationIds(sub)}
           onSelect={(id) => subs.selectServer(id)}
           onDetails={openDetails}
+          actionsFor={(server) => subs.locationActionsFor(sub, server)}
+          onAction={(action, server) => locationAction(action, server, sub)}
         />
+        {#if subs.hiddenCount(sub) > 0}
+          <button class="link-btn hidden-toggle" onclick={() => toggleRevealed(sub.id)}>
+            {revealedHidden.has(sub.id)
+              ? t("home.hideHiddenLocations")
+              : t("home.hiddenLocations", { n: subs.hiddenCount(sub) })}
+          </button>
+        {/if}
       {/if}
     </section>
   {/each}
@@ -972,6 +1027,10 @@
   .menu-wrap {
     position: relative;
   }
+  .hidden-toggle {
+    margin: 4px 14px 6px;
+  }
+
   .menu {
     position: fixed;
     /* Explicit width: a fixed element with right set + width:auto stretches to
