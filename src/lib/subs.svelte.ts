@@ -660,11 +660,9 @@ class SubsStore {
       );
       // "Hidden until I refresh myself": an explicit Refresh is the user asking
       // for the provider's current list, so hidden locations come back. The
-      // background refresh is not, and keeps them hidden.
-      if (
-        settings.hideLocations === "untilRefresh" ||
-        (manual && settings.hideLocations === "untilManualRefresh")
-      ) {
+      // background refresh is not, and keeps them hidden -- locations must not
+      // return by themselves while the app is merely open.
+      if (manual && settings.hideLocations === "untilManualRefresh") {
         this.clearHiddenLocations(subId);
       }
       // The server IDs were just regenerated — re-resolve the selection from its

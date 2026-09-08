@@ -159,7 +159,6 @@
 
   const hideModeOptions = $derived([
     { value: "untilManualRefresh", label: t("settings.hideMode.untilManualRefresh") },
-    { value: "untilRefresh", label: t("settings.hideMode.untilRefresh") },
     { value: "never", label: t("settings.hideMode.never") },
   ]);
 
