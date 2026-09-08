@@ -11,6 +11,18 @@
   state lived in the page component, so navigating re-created it and the card
   forgot mid-reading that he had asked to see them. It now lives in the store, and
   drops with the subscription.
+- Settings has a General section for what belongs to the app itself -- the tray,
+  the window, launching at login -- which used to sit under Interface. Theme is a
+  dropdown row like Language and Log level, instead of two big swatch tiles. The
+  off state of a switch takes the app's own background, so it reads as a hole in
+  the row rather than another elevated grey plate. And the card's reveal line says
+  just "Hide".
+- Right-clicking a location no longer looks dead while the location menu is open.
+  The menu covers the rows under and to the right of the cursor, so the second
+  right-click landed on the menu itself; the menu now steps aside and hands the
+  gesture to whatever is underneath, the way a native menu hands a right-click to
+  the window behind it.
+
 - The card's bottom line belongs to the "N hidden" / "Hide them again" button, not
   to the list: the button now spans the card, carries the separator a row carries,
   and centres its label, because it is a row-wide action and not a link in a

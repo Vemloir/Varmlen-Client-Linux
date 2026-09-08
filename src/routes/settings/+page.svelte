@@ -157,6 +157,11 @@
     { value: "proxy", label: t("ping.proxy") },
   ]);
 
+  const themeOptions = $derived([
+    { value: "dark", label: t("settings.dark") },
+    { value: "light", label: t("settings.light") },
+  ]);
+
   const pinOrderOptions = $derived([
     { value: "newestLast", label: t("settings.pinOrder.newestLast") },
     { value: "newestFirst", label: t("settings.pinOrder.newestFirst") },
@@ -248,26 +253,17 @@
 <main class="scroll fade-y">
   <section>
     <h2>{t("settings.appearance")}</h2>
-    <div class="card theme-card">
-      <div class="theme-row">
-        <button
-          class="theme-tile"
-          class:active={theme.current === "dark"}
-          onclick={() => theme.set("dark")}
-          aria-pressed={theme.current === "dark"}
-        >
-          <div class="swatch swatch-dark"></div>
-          <span>{t("settings.dark")}</span>
-        </button>
-        <button
-          class="theme-tile"
-          class:active={theme.current === "light"}
-          onclick={() => theme.set("light")}
-          aria-pressed={theme.current === "light"}
-        >
-          <div class="swatch swatch-light"></div>
-          <span>{t("settings.light")}</span>
-        </button>
+    <div class="list">
+      <div class="row">
+        <div class="row-text">
+          <div class="row-title">{t("settings.theme")}</div>
+        </div>
+        <Dropdown
+          value={theme.current}
+          options={themeOptions}
+          onChange={(v) => theme.set(v as "dark" | "light")}
+          ariaLabel={t("settings.theme")}
+        />
       </div>
     </div>
   </section>
@@ -299,6 +295,14 @@
           ariaLabel={t("settings.pinOrder")}
         />
       </div>
+    </div>
+  </section>
+
+  <!-- Everything that belongs to the app itself rather than to how it looks or to
+       the tunnel: the tray, the window, launching at login. -->
+  <section>
+    <h2>{t("settings.general")}</h2>
+    <div class="list">
       <!-- Tray / window / autostart are desktop concepts; hide on Android. -->
       {#if !isAndroid}
       <label class="row">
@@ -833,36 +837,6 @@
     letter-spacing: 0.08em;
   }
 
-  .theme-card { padding: 12px; }
-  .theme-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .theme-tile {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 12px;
-    background: var(--bg-elev-2);
-    border: none;
-    border-radius: var(--radius-sm);
-    color: var(--text);
-  }
-  .theme-tile.active {
-    background: var(--bg-elev-3);
-    box-shadow: 0 0 0 2px var(--accent-faint);
-  }
-  .swatch {
-    width: 100%;
-    height: 56px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-  }
-  .swatch-dark { background: linear-gradient(135deg, #1a1a1a 50%, #2e2e2e 50%); }
-  .swatch-light { background: linear-gradient(135deg, #ffffff 50%, #ebebeb 50%); }
-
   /* Same .list-row layout as the design system, but using <label> so the
      entire row activates the toggle without the cell extending past the
      visual edge. */
@@ -873,6 +847,7 @@
     padding: 12px 14px;
     cursor: pointer;
   }
+
   .row + .row {
     border-top: 1px solid var(--bg);
   }

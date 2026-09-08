@@ -219,12 +219,40 @@
       if (event.key === "Escape") closeLocationMenu();
     };
     const onScroll = () => closeLocationMenu();
+    const onDocContextmenu = (event: MouseEvent) => {
+      const node = event.target as Node | null;
+      if (!node || !locMenuEl?.contains(node)) return;
+      // The menu is open and the user right-clicked THROUGH it, because it covers
+      // the rows under and to the right of the cursor. Get out of the way and hand
+      // the gesture to whatever is underneath, the way a native menu hands a
+      // right-click to the window behind it -- otherwise the second right-click
+      // inside one subscription looks dead.
+      const x = event.clientX;
+      const y = event.clientY;
+      event.preventDefault();
+      event.stopPropagation();
+      closeLocationMenu();
+      requestAnimationFrame(() => {
+        const below = document.elementFromPoint(x, y);
+        below?.dispatchEvent(
+          new MouseEvent("contextmenu", {
+            bubbles: true,
+            cancelable: true,
+            clientX: x,
+            clientY: y,
+            button: 2,
+          }),
+        );
+      });
+    };
     document.addEventListener("click", onDocClick, true);
+    document.addEventListener("contextmenu", onDocContextmenu, true);
     document.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onScroll);
     return () => {
       document.removeEventListener("click", onDocClick, true);
+      document.removeEventListener("contextmenu", onDocContextmenu, true);
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);

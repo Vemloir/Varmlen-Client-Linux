@@ -18,7 +18,12 @@ describe("card surface contract", () => {
       /\.list > \* \+ \*\s*\{[^}]*border-top:\s*1px solid var\(--bg\);/s,
     );
     expect(home).toMatch(/\.sub-card\s*\{[^}]*border:\s*none;/s);
-    expect(settings).toMatch(/\.theme-tile\s*\{[^}]*border:\s*none;/s);
+    // The theme picker is a dropdown row now, not a pair of tiles, so the only
+    // surface left in Appearance is the row itself.
+    expect(settings).toMatch(/<Dropdown\s+value=\{theme\.current\}/s);
+    // And a switch in its off state takes the app's own background, so it reads as
+    // a hole in the row instead of another elevated grey plate.
+    expect(css).toMatch(/\.switch \.slider\s*\{[^}]*background:\s*var\(--bg\);/s);
     expect(settings).toMatch(
       /\.row \+ \.row\s*\{[^}]*border-top:\s*1px solid var\(--bg\);/s,
     );

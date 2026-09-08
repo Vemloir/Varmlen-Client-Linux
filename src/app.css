@@ -230,7 +230,9 @@ a {
   position: absolute;
   inset: 0;
   cursor: pointer;
-  background: var(--bg-elev-3);
+  /* Off state reads as a hole in the row, the way system settings do it: the
+     track takes the app's own background, not another elevated grey. */
+  background: var(--bg);
   border-radius: 26px;
   transition: background var(--transition);
 }

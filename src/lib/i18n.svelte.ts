@@ -29,7 +29,7 @@ const EN: Dict = {
 
   // the card's "hidden locations" line: the count, and the way back
   "home.hiddenLocations": "{n} hidden",
-  "home.hideHiddenLocations": "Hide them again",
+  "home.hideHiddenLocations": "Hide",
 
   // subscription menu
   "menu.info": "Subscription info",
@@ -147,10 +147,11 @@ const EN: Dict = {
 
   // settings
   "settings.title": "Settings",
+  "settings.general": "General",
   "settings.appearance": "Appearance",
+  "settings.theme": "Theme",
   "settings.dark": "Dark",
   "settings.light": "Light",
-  "settings.general": "General",
   "settings.interface": "Interface",
   "settings.vpn": "VPN",
   "settings.language": "Language",
@@ -251,7 +252,7 @@ const RU: Dict = {
   "home.updateFailed": "последнее обновление не удалось: {error}",
 
   "home.hiddenLocations": "Скрыто: {n}",
-  "home.hideHiddenLocations": "Скрыть снова",
+  "home.hideHiddenLocations": "Скрыть",
 
   "menu.info": "Информация о подписке",
   "menu.rename": "Переименовать",
@@ -361,10 +362,11 @@ const RU: Dict = {
   "split.appsProxyUnavailable": "Per-app split-туннелинг недоступен в режиме Proxy. Переключитесь на режим TUN.",
 
   "settings.title": "Настройки",
+  "settings.general": "Основные",
   "settings.appearance": "Оформление",
+  "settings.theme": "Тема",
   "settings.dark": "Тёмная",
   "settings.light": "Светлая",
-  "settings.general": "Общие",
   "settings.interface": "Интерфейс",
   "settings.vpn": "VPN",
   "settings.language": "Язык",
