@@ -284,6 +284,20 @@
           ariaLabel={t("settings.language")}
         />
       </div>
+      <label class="row">
+        <div class="row-text">
+          <div class="row-title">{t("settings.navLabels")}</div>
+          <div class="row-sub muted">{t("settings.navLabelsSub")}</div>
+        </div>
+        <span class="switch">
+          <input
+            type="checkbox"
+            checked={settings.navLabels}
+            onchange={(e) => settings.setNavLabels((e.currentTarget as HTMLInputElement).checked)}
+          />
+          <span class="slider"></span>
+        </span>
+      </label>
       <div class="row">
         <div class="row-text">
           <div class="row-title">{t("settings.pinOrder")}</div>
@@ -897,9 +911,10 @@
   .row-title { font-size: 14px; }
   .row-sub { font-size: 12px; margin-top: 2px; }
   .num-input {
-    /* A square: as wide as it is tall. Card background, no outline. */
+    /* Card background, no outline. Wide enough for the four digits of an MTU --
+       a 32px box clipped 1500 to "150". */
     box-sizing: border-box;
-    width: 32px;
+    width: 64px;
     height: 32px;
     padding: 0;
     border-radius: var(--radius-sm);

@@ -102,7 +102,7 @@
   function confirmAdd() {
     for (const app of installed) {
       if (selected.has(app.id)) {
-        split.addApp({ id: app.id, name: app.name, icon: app.icon ?? "📦" });
+        split.addApp({ id: app.id, name: app.name, icon: app.icon ?? null });
       }
     }
     selected = new Set();
@@ -114,7 +114,7 @@
     if (!picked) return;
     const app = await appFromFile(picked);
     if (app) {
-      split.addApp({ id: app.id, name: app.name, icon: app.icon ?? "📦" });
+      split.addApp({ id: app.id, name: app.name, icon: app.icon ?? null });
     }
     showAddApp = false;
   }
@@ -142,11 +142,14 @@
   }
 </script>
 
+<!-- An application without an icon gets no icon. A placeholder square with a
+     generic box inside is decoration that tells the user nothing and pushes the
+     name away from the row's edge. -->
 {#snippet appIcon(icon: string | null | undefined)}
   {#if icon && icon.startsWith("data:")}
     <img class="app-icon" src={icon} alt="" />
-  {:else}
-    <span class="app-icon">{icon || "📦"}</span>
+  {:else if icon}
+    <span class="app-icon">{icon}</span>
   {/if}
 {/snippet}
 
@@ -157,6 +160,7 @@
 <div class="page fade-y">
 
   <div class="segmented" role="tablist">
+    <span class="seg-thumb" class:right={tab === "websites"} aria-hidden="true"></span>
     <button
       class:active={tab === "apps"}
       class:unavailable={!appsAvailable}
@@ -373,6 +377,13 @@
   .segmented :global(button) {
     flex: 1;
   }
+  /* Two equal segments inside 3px of padding and a 2px gap. */
+  .segmented :global(.seg-thumb) {
+    width: calc((100% - 8px) / 2);
+  }
+  .segmented :global(.seg-thumb.right) {
+    transform: translateX(calc(100% + 2px));
+  }
   .segmented :global(button.unavailable) {
     color: var(--text-muted);
     cursor: not-allowed;
@@ -397,6 +408,8 @@
   }
 
   .mode {
+    /* The same panel colour as the search field, so the two read as one family. */
+    background: var(--bg-elev-2);
     padding: 14px 16px;
     display: flex;
     flex-direction: column;
@@ -419,7 +432,8 @@
     margin: 2px 0 0;
     font-size: 12px;
     padding: 8px 10px;
-    background: var(--bg-elev-2);
+    /* The note sits INSIDE the panel, so it takes the app's own background. */
+    background: var(--bg);
     border-radius: var(--radius-sm);
   }
 
@@ -454,8 +468,7 @@
   .app-icon {
     width: 30px;
     height: 30px;
-    border-radius: 8px;
-    background: var(--bg-elev-2);
+    /* No rounded square behind the icon: the icon IS the thing. */
     display: flex;
     align-items: center;
     justify-content: center;

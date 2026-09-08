@@ -11,6 +11,19 @@
   state lived in the page component, so navigating re-created it and the card
   forgot mid-reading that he had asked to see them. It now lives in the store, and
   drops with the subscription.
+- Split: the apps/sites selector is a pill with a selection that SLIDES. Its ends
+  are as round as the control can be, the selected panel takes the app's own
+  background, and switching tabs moves the panel between the two labels the way a
+  switch moves its knob -- changing place in the same screen is motion, not a
+  fade-in of something new. The mode panel takes the same colour as the search
+  field and its description panel takes the app background, so the two read as one
+  family. Application rows lost the rounded square behind the icon, and an
+  application with no icon now shows no icon at all rather than a placeholder box.
+- The bottom tabs can drop their labels, and by default they do: three icons
+  without three captions, which gives the location list back the vertical space
+  the captions took. Settings -> Interface turns them back on.
+- The number field is twice as wide -- a 32px box clipped an MTU of 1500 to "150".
+
 - MTU is a setting. The client hardcoded 1500 on the tunnel interface, and that is
   the one value a tunnel cannot always carry: under WireGuard, Hysteria or any path
   that encapsulates again, 1500 inside the tunnel means the outer packet exceeds the

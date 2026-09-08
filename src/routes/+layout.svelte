@@ -180,11 +180,18 @@
 
   <nav class="tabbar">
     {#each NAV as item}
-      <a href={item.path} class="tab" class:active={isActive(item.path)}>
+      <a
+        href={item.path}
+        class="tab"
+        class:active={isActive(item.path)}
+        class:no-label={!settings.navLabels}
+        aria-label={t(item.labelKey)}
+        aria-current={isActive(item.path) ? "page" : undefined}
+      >
         <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
           <path d={item.icon} fill="currentColor" />
         </svg>
-        <span>{t(item.labelKey)}</span>
+        {#if settings.navLabels}<span>{t(item.labelKey)}</span>{/if}
       </a>
     {/each}
   </nav>
@@ -204,6 +211,12 @@
     min-height: 0;
     position: relative;
     overflow: hidden;
+  }
+
+  /* Without the label the icon sits alone, so it gets the height the label used to
+     take and stays on the same centre line. */
+  .tab.no-label {
+    padding: 9px 4px;
   }
 
   .tabbar {

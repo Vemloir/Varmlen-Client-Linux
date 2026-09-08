@@ -262,23 +262,48 @@ a {
 /* ---------- segmented control ---------- */
 .segmented {
   display: inline-flex;
+  position: relative;
   background: var(--bg-elev-2);
-  border-radius: var(--radius-sm);
+  /* Pill, not a rounded rectangle: the ends are as round as the control can be. */
+  border-radius: 999px;
   padding: 3px;
   gap: 2px;
 }
 .segmented button {
   padding: 6px 14px;
   font-size: 13px;
-  border-radius: 6px;
+  border-radius: 999px;
+  position: relative;
+  z-index: 1;
   color: var(--text-muted);
   border: none;
   font-weight: 500;
 }
 .segmented button.active {
-  background: var(--bg-elev);
+  background: var(--bg);
   color: var(--text);
   box-shadow: var(--shadow-sm);
+}
+
+/* A segmented control whose selection slides. The panel behind the active label
+   is a separate element that moves, the way a switch moves its knob: switching
+   between two places in the same screen is motion, not a fade-in of something
+   new. Without this element (any other segmented control) the rule above still
+   paints the active button itself. */
+.segmented .seg-thumb {
+  position: absolute;
+  z-index: 0;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  background: var(--bg);
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition);
+}
+.segmented:has(.seg-thumb) button.active {
+  background: transparent;
+  box-shadow: none;
 }
 
 /* ---------- list rows ---------- */

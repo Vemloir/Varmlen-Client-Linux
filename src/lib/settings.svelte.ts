@@ -31,6 +31,9 @@ interface Persisted {
   /** Simultaneous location pings; 0 = no limit (every ping is its own short-lived
    *  xray process, so an unbounded burst costs memory and CPU). */
   pingConcurrency: number;
+  /** Names under the bottom tab icons. Off by default: three tabs with two words
+   *  each cost vertical space the location list needs. */
+  navLabels: boolean;
   /** MTU of the tunnel interface. A path that encapsulates again cannot carry
    *  Ethernet's 1500 inside the tunnel, and then only large responses die. */
   mtu: number;
@@ -49,6 +52,7 @@ const DEFAULTS: Persisted = {
   pinOrder: "newestLast",
   pingConcurrency: 0,
   mtu: MTU_DEFAULT,
+  navLabels: false,
 };
 
 const LOG_LEVELS: LogLevel[] = ["debug", "warn", "error"];
@@ -79,6 +83,7 @@ function load(): Persisted {
         : DEFAULTS.pinOrder,
       pingConcurrency: sanitizePingConcurrency(parsed.pingConcurrency),
       mtu: normalizeMtu(parsed.mtu),
+      navLabels: parsed.navLabels ?? DEFAULTS.navLabels,
     };
   } catch {
     return DEFAULTS;
@@ -101,6 +106,7 @@ class SettingsStore {
   pinOrder = $state<PinOrder>(_initialSettings.pinOrder);
   pingConcurrency = $state<number>(_initialSettings.pingConcurrency);
   mtu = $state<number>(_initialSettings.mtu);
+  navLabels = $state<boolean>(_initialSettings.navLabels);
 
   private persist(): void {
     if (!browser) return;
@@ -118,6 +124,7 @@ class SettingsStore {
         pinOrder: this.pinOrder,
         pingConcurrency: this.pingConcurrency,
         mtu: this.mtu,
+        navLabels: this.navLabels,
       }),
     );
   }
@@ -142,6 +149,10 @@ class SettingsStore {
   }
   setPingConcurrency(v: number): void {
     this.pingConcurrency = sanitizePingConcurrency(v);
+    this.persist();
+  }
+  setNavLabels(v: boolean): void {
+    this.navLabels = v;
     this.persist();
   }
   /** Out-of-range values are clamped by `normalizeMtu`, never reset: see mtu.ts. */

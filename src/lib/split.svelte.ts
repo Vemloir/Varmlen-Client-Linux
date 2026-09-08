@@ -9,8 +9,9 @@ export interface AppEntry {
   id: string;
   /** Display name. */
   name: string;
-  /** Emoji, short text, or a `data:` icon URI. */
-  icon: string;
+  /** Emoji, short text, or a `data:` icon URI. Null when the application has no
+   *  icon at all -- the row then shows no icon rather than a placeholder. */
+  icon: string | null;
   enabled: boolean;
 }
 
