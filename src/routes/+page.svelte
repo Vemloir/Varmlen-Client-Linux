@@ -1126,9 +1126,17 @@
   .menu-wrap {
     position: relative;
   }
+  /* The card's bottom line belongs to this button, not to the list: it closes the
+     list the same way a row separator divides two rows, and only exists when there
+     is something hidden to show. Label centred -- it is a row-wide action, not a
+     link in a sentence. */
   .hidden-toggle {
-    /* the list already leaves 10px under the last row */
-    margin: 0 14px 6px;
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 10px 14px;
+    text-align: center;
+    border-top: 1px solid var(--bg);
   }
 
   /* The location menu. Width is set in JS from the longest item, so a Russian

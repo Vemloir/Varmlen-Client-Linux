@@ -162,10 +162,7 @@
   .server-list {
     list-style: none;
     margin: 0;
-    /* 10px below the last row, the same inset a row has above its text: the last
-       row's own separator needs room INSIDE the card, otherwise it lands exactly
-       on the card's edge and is invisible -- which is how it looked "not drawn". */
-    padding: 4px 0 10px;
+    padding: 4px 0 0;
     /* A long press on text is the WebView's own "select text" gesture: it haptics
        and shows a selection handle, which is exactly what the location menu is
        trying to do. Take the text away from it. Inputs and the JSON editor keep
@@ -189,19 +186,6 @@
     left: 0;
     right: 0;
     border-top: 1px solid var(--bg);
-    pointer-events: none;
-  }
-  /* Every row draws its own line ABOVE, so the last row ended the card without
-     one: the bottom of the list had no separator at all. Give the last row the
-     same line below. */
-  .srv-row:last-child::after {
-    content: "";
-    position: absolute;
-    z-index: 1;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    border-bottom: 1px solid var(--bg);
     pointer-events: none;
   }
   @media (hover: hover) and (pointer: fine) {
