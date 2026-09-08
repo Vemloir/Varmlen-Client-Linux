@@ -188,6 +188,19 @@
     border-top: 1px solid var(--bg);
     pointer-events: none;
   }
+  /* Every row draws its own line ABOVE, so the last row ended the card without
+     one: the bottom of the list had no separator at all. Give the last row the
+     same line below. */
+  .srv-row:last-child::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-bottom: 1px solid var(--bg);
+    pointer-events: none;
+  }
   @media (hover: hover) and (pointer: fine) {
     :global(html:not(.is-android)) .srv-row:not(.active):hover {
       background: var(--bg-elev-2);

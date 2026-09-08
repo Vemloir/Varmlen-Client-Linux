@@ -143,18 +143,6 @@
     locationSaveError = null;
     openModal("details");
   }
-  /** Cards whose hidden locations the user is looking at right now. Revealing is
-   *  deliberately temporary and per card: it shows them dimmed without un-hiding
-   *  anything. */
-  let revealedHidden = $state<Set<string>>(new Set());
-
-  function toggleRevealed(subId: string): void {
-    const next = new Set(revealedHidden);
-    if (next.has(subId)) next.delete(subId);
-    else next.add(subId);
-    revealedHidden = next;
-  }
-
   /** THE location menu. One instance for the whole page: a state per card left
    *  several menus open when the user right-clicked in two subscriptions. */
   let locMenu = $state<{
@@ -594,7 +582,7 @@
 
       {#if !sub.collapsed}
         <ServerList
-          servers={subs.visibleLocations(sub, revealedHidden.has(sub.id))}
+          servers={subs.visibleLocations(sub, subs.isRevealed(sub.id))}
           selectedServerId={subs.selectedServerId}
           pings={subs.pings}
           hiddenIds={subs.hiddenLocationIds(sub)}
@@ -604,8 +592,8 @@
           onMenu={(server, point) => void openLocationMenu(sub, server, point)}
         />
         {#if subs.hiddenCount(sub) > 0}
-          <button class="link-btn hidden-toggle" onclick={() => toggleRevealed(sub.id)}>
-            {revealedHidden.has(sub.id)
+          <button class="link-btn hidden-toggle" onclick={() => subs.toggleRevealed(sub.id)}>
+            {subs.isRevealed(sub.id)
               ? t("home.hideHiddenLocations")
               : t("home.hiddenLocations", { n: subs.hiddenCount(sub) })}
           </button>

@@ -372,6 +372,11 @@ class SubsStore {
 
   remove(subId: string): void {
     this.list = this.list.filter((s) => s.id !== subId);
+    if (this.revealedHidden.has(subId)) {
+      const next = new Set(this.revealedHidden);
+      next.delete(subId);
+      this.revealedHidden = next;
+    }
     this.reconcileSelection();
     this.prunePings();
     this.persist();
@@ -409,7 +414,6 @@ class SubsStore {
       keyOf: (server) => locationKey(server),
       hiddenKeys: sub.hiddenKeys ?? [],
       pinnedAt: sub.pinnedLocations ?? {},
-      hideMode: settings.hideLocations,
       revealHidden,
       pinOrder: settings.pinOrder,
     }).visible;
@@ -420,7 +424,6 @@ class SubsStore {
       sub.servers,
       (server) => locationKey(server),
       sub.hiddenKeys ?? [],
-      settings.hideLocations,
     );
   }
 
@@ -459,7 +462,6 @@ class SubsStore {
       fromSubscription: !this.isManualCard(sub),
       hidden: this.isLocationHidden(sub, server),
       pinned: this.isLocationPinned(sub, server),
-      hideMode: settings.hideLocations,
     });
   }
 
@@ -506,15 +508,22 @@ class SubsStore {
     this.persist();
   }
 
-  /** Restore every hidden location of a card. Called by an explicit Refresh when
-   *  the user chose "hidden until I refresh myself". */
-  clearHiddenLocations(subId: string): void {
-    this.list = this.list.map((s) =>
-      s.id === subId && (s.hiddenKeys?.length ?? 0) > 0
-        ? { ...s, hiddenKeys: [] }
-        : s,
-    );
-    this.persist();
+  /** Cards whose hidden locations the user is looking at right now. Revealing is
+   *  temporary and per card -- it shows them dimmed without un-hiding anything --
+   *  and it lives in the store rather than in the page, because switching to
+   *  Settings and back re-creates the page component and the card started
+   *  pretending the user had never asked to see them. */
+  revealedHidden = $state<Set<string>>(new Set());
+
+  isRevealed(subId: string): boolean {
+    return this.revealedHidden.has(subId);
+  }
+
+  toggleRevealed(subId: string): void {
+    const next = new Set(this.revealedHidden);
+    if (next.has(subId)) next.delete(subId);
+    else next.add(subId);
+    this.revealedHidden = next;
   }
 
   /** Whether the provider sent any traffic figures — gates the traffic pill, so
@@ -658,13 +667,10 @@ class SubsStore {
             }
           : s,
       );
-      // "Hidden until I refresh myself": an explicit Refresh is the user asking
-      // for the provider's current list, so hidden locations come back. The
-      // background refresh is not, and keeps them hidden -- locations must not
-      // return by themselves while the app is merely open.
-      if (manual && settings.hideLocations === "untilManualRefresh") {
-        this.clearHiddenLocations(subId);
-      }
+      // Nothing here restores a hidden location, not even an explicit Refresh:
+      // the user hid that row and only he brings it back (the card's "N hidden"
+      // line), or he removes the subscription and imports it again. A refresh is
+      // the provider's business, not the user's undo button.
       // The server IDs were just regenerated — re-resolve the selection from its
       // stable key so the chosen location stays chosen.
       this.reconcileSelection();

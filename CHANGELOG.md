@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- The "Hide locations" setting is gone. Hiding now has one behaviour: the row stays
+  hidden until the user shows it again on the card, and the only other way back is
+  removing the subscription and importing it again. A refresh -- background or
+  explicit -- no longer restores anything, because a refresh is the provider's
+  business and not the user's undo button.
+- Revealing a card's hidden locations survives switching to Settings and back. The
+  state lived in the page component, so navigating re-created it and the card
+  forgot mid-reading that he had asked to see them. It now lives in the store, and
+  drops with the subscription.
+- The last location in a card had no separator under it. Every row draws its line
+  above, so the bottom of the list ended without one.
+
 - "Until the next update" is gone as a hiding mode. A background update is not
   something the user did, so hiding a location could undo itself while the app was
   simply open. Two modes are left: hidden until I refresh that card myself, and

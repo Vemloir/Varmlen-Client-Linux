@@ -2,7 +2,7 @@
   import { theme } from "$lib/theme.svelte";
   import { settings, type VpnMode, type PingMethod, type LogLevel } from "$lib/settings.svelte";
   import type { SubscriptionUserAgent } from "$lib/subscription-user-agent";
-  import type { HideLocationsMode, PinOrder } from "$lib/location-actions";
+  import type { PinOrder } from "$lib/location-actions";
   import { i18n, t, LANGUAGES, type Lang } from "$lib/i18n.svelte";
   import { core } from "$lib/core.svelte";
   import { autostartStatus, setAutostart, vpnLog, clearVpnLog, notificationsEnabled, openNotificationSettings } from "$lib/api";
@@ -157,11 +157,6 @@
     { value: "proxy", label: t("ping.proxy") },
   ]);
 
-  const hideModeOptions = $derived([
-    { value: "untilManualRefresh", label: t("settings.hideMode.untilManualRefresh") },
-    { value: "never", label: t("settings.hideMode.never") },
-  ]);
-
   const pinOrderOptions = $derived([
     { value: "newestLast", label: t("settings.pinOrder.newestLast") },
     { value: "newestFirst", label: t("settings.pinOrder.newestFirst") },
@@ -290,18 +285,6 @@
           options={LANGUAGES}
           onChange={(v) => i18n.set(v as Lang)}
           ariaLabel={t("settings.language")}
-        />
-      </div>
-      <div class="row">
-        <div class="row-text">
-          <div class="row-title">{t("settings.hideLocations")}</div>
-          <div class="row-sub muted">{t("settings.hideLocationsSub")}</div>
-        </div>
-        <Dropdown
-          value={settings.hideLocations}
-          options={hideModeOptions}
-          onChange={(v) => settings.setHideLocations(v as HideLocationsMode)}
-          ariaLabel={t("settings.hideLocations")}
         />
       </div>
       <div class="row">

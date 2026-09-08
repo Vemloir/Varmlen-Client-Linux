@@ -3,7 +3,7 @@ import {
   normalizeSubscriptionUserAgent,
   type SubscriptionUserAgent,
 } from "./subscription-user-agent";
-import type { HideLocationsMode, PinOrder } from "./location-actions";
+import type { PinOrder } from "./location-actions";
 
 export type VpnMode = "tun" | "proxy";
 /** How server latency is measured. `tcp` = raw TCP connect to the endpoint
@@ -25,7 +25,6 @@ interface Persisted {
   subscriptionUserAgent: SubscriptionUserAgent;
   subscriptionAutoUpdate: boolean;
   /** How long a hidden subscription location stays hidden. */
-  hideLocations: HideLocationsMode;
   /** Order of the pinned locations among themselves. */
   pinOrder: PinOrder;
   /** Simultaneous location pings; 0 = no limit (every ping is its own short-lived
@@ -43,24 +42,11 @@ const DEFAULTS: Persisted = {
   logLevel: "warn",
   subscriptionUserAgent: "varmlen",
   subscriptionAutoUpdate: true,
-  hideLocations: "untilManualRefresh",
   pinOrder: "newestLast",
   pingConcurrency: 0,
 };
 
 const LOG_LEVELS: LogLevel[] = ["debug", "warn", "error"];
-const HIDE_MODES: HideLocationsMode[] = ["untilManualRefresh", "never"];
-
-/** Earlier builds offered `always`, `off` and `untilRefresh`. `always` is now
- *  `never`; "do not hide anything" is not a hiding mode; and a location hidden
- *  "until the next update" that came back by itself was the complaint, so
- *  `untilRefresh` falls back to the default, where only the user restores it. */
-function migrateHideMode(value: unknown): HideLocationsMode {
-  if (value === "always") return "never";
-  return HIDE_MODES.includes(value as HideLocationsMode)
-    ? (value as HideLocationsMode)
-    : DEFAULTS.hideLocations;
-}
 const PIN_ORDERS: PinOrder[] = ["newestLast", "newestFirst"];
 
 function load(): Persisted {
@@ -83,7 +69,6 @@ function load(): Persisted {
       ),
       subscriptionAutoUpdate:
         parsed.subscriptionAutoUpdate ?? DEFAULTS.subscriptionAutoUpdate,
-      hideLocations: migrateHideMode(parsed.hideLocations),
       pinOrder: PIN_ORDERS.includes(parsed.pinOrder as PinOrder)
         ? (parsed.pinOrder as PinOrder)
         : DEFAULTS.pinOrder,
@@ -107,7 +92,6 @@ class SettingsStore {
     _initialSettings.subscriptionUserAgent,
   );
   subscriptionAutoUpdate = $state(_initialSettings.subscriptionAutoUpdate);
-  hideLocations = $state<HideLocationsMode>(_initialSettings.hideLocations);
   pinOrder = $state<PinOrder>(_initialSettings.pinOrder);
   pingConcurrency = $state<number>(_initialSettings.pingConcurrency);
 
@@ -124,7 +108,6 @@ class SettingsStore {
         logLevel: this.logLevel,
         subscriptionUserAgent: this.subscriptionUserAgent,
         subscriptionAutoUpdate: this.subscriptionAutoUpdate,
-        hideLocations: this.hideLocations,
         pinOrder: this.pinOrder,
         pingConcurrency: this.pingConcurrency,
       }),
@@ -143,10 +126,6 @@ class SettingsStore {
   }
   setSubscriptionAutoUpdate(v: boolean): void {
     this.subscriptionAutoUpdate = v;
-    this.persist();
-  }
-  setHideLocations(v: HideLocationsMode): void {
-    this.hideLocations = migrateHideMode(v);
     this.persist();
   }
   setPinOrder(v: PinOrder): void {
