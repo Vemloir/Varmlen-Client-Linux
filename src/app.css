@@ -48,9 +48,11 @@
   --danger-faint-2: rgba(229, 72, 77, 0.26);
   --warn: #f5a524;
 
-  --radius-sm: 8px;
-  --radius: 12px;
-  --radius-lg: 16px;
+  /* One rounding family, scaled up: a control that is a third of a card should
+     look like it belongs to the same object, not like a different shape. */
+  --radius-sm: 12px;
+  --radius: 18px;
+  --radius-lg: 24px;
 
   --transition: 140ms cubic-bezier(0.2, 0, 0, 1);
 
@@ -263,14 +265,22 @@ a {
 .segmented {
   display: inline-flex;
   position: relative;
-  background: var(--bg-elev-2);
+  /* The same panel colour as the cards and the list under it. */
+  background: var(--bg-elev);
   /* Pill, not a rounded rectangle: the ends are as round as the control can be. */
   border-radius: 999px;
   padding: 3px;
   gap: 2px;
 }
 .segmented button {
-  padding: 6px 14px;
+  /* A fixed height, so the pill is 30 + 2*3 = 36 px and the panel inside it is
+     exactly 30 px. Left to the font's line box the pill came out at an odd height
+     and the frame was one pixel thicker on one side. */
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
   font-size: 13px;
   border-radius: 999px;
   position: relative;
@@ -291,14 +301,17 @@ a {
    new. Without this element (any other segmented control) the rule above still
    paints the active button itself. */
 .segmented .seg-thumb {
+  /* left, width and translateX are set from the measured active button; the
+     vertical inset is the control's own padding and stays here. */
   position: absolute;
   z-index: 0;
   top: 3px;
   bottom: 3px;
-  left: 3px;
   background: var(--bg);
   border-radius: 999px;
-  box-shadow: var(--shadow-sm);
+  /* No shadow: --shadow-sm is offset 1px down, which darkened the frame under the
+     panel and left the frame above it clean -- the two sides of the same pill
+     looked like they had different thickness. */
   transition: transform var(--transition);
 }
 .segmented:has(.seg-thumb) button.active {
@@ -321,6 +334,11 @@ a {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
+  /* An application row carries two lines (name + id) and a site row one, so left
+     to the content the list came out with rows of different heights (measured: 60
+     against ~60.4, and worse with other fonts). Both kinds are dominated by this
+     height, so the rhythm is identical whatever the row contains. */
+  min-height: 62px;
   background: transparent;
   transition: background var(--transition);
 }

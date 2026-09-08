@@ -1165,6 +1165,10 @@
     padding: 10px 14px;
     text-align: center;
     border-top: 1px solid var(--bg);
+    /* It is the card's last row: the bottom corners follow the card, the top ones
+       stay square, or the row peels away from the rows above it. The base button
+       radius (--radius-sm) rounds all four, which read as two notches. */
+    border-radius: 0 0 var(--radius) var(--radius);
   }
 
   /* The location menu. Width is set in JS from the longest item, so a Russian

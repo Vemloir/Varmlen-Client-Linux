@@ -13,6 +13,40 @@
     appSplitAvailable(settings.vpnMode) ? "apps" : "websites",
   );
   const appsAvailable = $derived(appSplitAvailable(settings.vpnMode));
+
+  // The selector's sliding panel is measured, not guessed. Percentages inside a
+  // segmented control resolve against a box that is not the pill the user sees
+  // (measured on screen: the panel came out 6 px narrower than its own segment and
+  // left a thicker frame on one side), and WebKitGTK disagrees with itself about
+  // which box that is. So the active button's own offsetLeft/offsetWidth drive it,
+  // the same way the location menu's width is measured instead of `max-content`.
+  let segEl = $state<HTMLDivElement | undefined>();
+  let thumbStyle = $state("");
+  function syncThumb(): void {
+    const host = segEl;
+    if (!host) return;
+    const btns = Array.from(host.querySelectorAll("button")) as HTMLElement[];
+    if (btns.length === 0) return;
+    const first = btns[0];
+    const active = btns.find((b) => b.classList.contains("active")) ?? first;
+    thumbStyle =
+      `left: ${first.offsetLeft}px; width: ${active.offsetWidth}px; ` +
+      `transform: translateX(${active.offsetLeft - first.offsetLeft}px);`;
+  }
+  let segResize: ResizeObserver | undefined;
+  $effect(() => {
+    tab;
+    void tick().then(syncThumb);
+    const host = segEl;
+    if (host && !segResize && typeof ResizeObserver !== "undefined") {
+      segResize = new ResizeObserver(() => syncThumb());
+      segResize.observe(host);
+    }
+  });
+  onDestroy(() => {
+    segResize?.disconnect();
+    segResize = undefined;
+  });
   let showAppsUnavailable = $state(false);
   let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -159,8 +193,8 @@
 
 <div class="page fade-y">
 
-  <div class="segmented" role="tablist">
-    <span class="seg-thumb" class:right={tab === "websites"} aria-hidden="true"></span>
+  <div class="segmented" role="tablist" bind:this={segEl}>
+    <span class="seg-thumb" style={thumbStyle} aria-hidden="true"></span>
     <button
       class:active={tab === "apps"}
       class:unavailable={!appsAvailable}
@@ -377,13 +411,7 @@
   .segmented :global(button) {
     flex: 1;
   }
-  /* Two equal segments inside 3px of padding and a 2px gap. */
-  .segmented :global(.seg-thumb) {
-    width: calc((100% - 8px) / 2);
-  }
-  .segmented :global(.seg-thumb.right) {
-    transform: translateX(calc(100% + 2px));
-  }
+
   .segmented :global(button.unavailable) {
     color: var(--text-muted);
     cursor: not-allowed;
@@ -408,8 +436,6 @@
   }
 
   .mode {
-    /* The same panel colour as the search field, so the two read as one family. */
-    background: var(--bg-elev-2);
     padding: 14px 16px;
     display: flex;
     flex-direction: column;
@@ -441,7 +467,16 @@
     display: flex;
     gap: 8px;
   }
-  .apps-controls .search { flex: 1; }
+  /* Search, mode panel, selector and the list under them: one panel colour. */
+  .apps-controls .search {
+    flex: 1;
+    background: var(--bg-elev);
+    border: none;
+  }
+  .site-add input {
+    background: var(--bg-elev);
+    border: none;
+  }
   .add-app {
     width: 38px;
     flex-shrink: 0;

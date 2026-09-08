@@ -11,6 +11,27 @@
   state lived in the page component, so navigating re-created it and the card
   forgot mid-reading that he had asked to see them. It now lives in the store, and
   drops with the subscription.
+- One rounding family across the app: `--radius-sm` 8 -> 12, `--radius` 12 -> 18,
+  `--radius-lg` 16 -> 24. Controls that are a fraction of a card now look like they
+  were cut from the same sheet. The selector, the mode panel, the search field and
+  the list under them share one panel colour (`--bg-elev`), and the search and
+  add-domain fields lost their outline: they are panels, not form inputs to be
+  filled in.
+- The segmented selector's frame is the same thickness on both sides. Measured on
+  screen it was 3 px above the selected panel and 2 px below it: the control's
+  height came out of the font's line box, and `--shadow-sm` (offset 1 px down)
+  darkened the frame under the panel while leaving the frame above it clean. The
+  segments now have a fixed 30 px height, so the pill is 36 px and the panel inside
+  it exactly 30, and the panel carries no shadow. Its left, width and travel are
+  measured from the active button in JS, like the location menu's width, because
+  percentages inside the control resolve against a box that is not the pill.
+- Application and website rows are the same height (62 px, measured equal on both
+  tabs). An application row carries two lines of text and a website row one, so
+  left to the content the list came out uneven.
+- The reveal-hidden-locations row is rounded at the bottom only, following the card
+  it closes; its top corners are square, where the base button radius left two
+  notches against the row above.
+
 - Split: the apps/sites selector is a pill with a selection that SLIDES. Its ends
   are as round as the control can be, the selected panel takes the app's own
   background, and switching tabs moves the panel between the two labels the way a
