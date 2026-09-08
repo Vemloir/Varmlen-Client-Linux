@@ -112,8 +112,11 @@ pub async fn vpn_connect(
     killswitch: bool,
     allow_lan: bool,
     log_level: Option<String>,
+    mtu: Option<u32>,
 ) -> Result<HelperResponse, String> {
     let level = log_level.unwrap_or_else(|| "warn".to_string());
+    // The interface MTU is the user's, clamped to what an interface can carry.
+    let mtu = crate::xray::tun_mtu(mtu);
     validate_server(&server)?;
 
     #[cfg(target_os = "android")]
@@ -126,6 +129,7 @@ pub async fn vpn_connect(
             TunMode::Tun2socks,
             allow_lan,
             &level,
+            mtu,
         ))
         .map_err(|error| error.to_string())?;
         let applications_are_allowlist = split.apps_selective();
@@ -157,6 +161,7 @@ pub async fn vpn_connect(
             TunMode::XrayNative,
             allow_lan,
             &level,
+            mtu,
         ))
         .map_err(|error| error.to_string())?;
         let validation_config = serde_json::to_string(&build_connection_probe_config(&server)?)

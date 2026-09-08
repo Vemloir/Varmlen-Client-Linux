@@ -11,6 +11,14 @@
   state lived in the page component, so navigating re-created it and the card
   forgot mid-reading that he had asked to see them. It now lives in the store, and
   drops with the subscription.
+- MTU is a setting. The client hardcoded 1500 on the tunnel interface, and that is
+  the one value a tunnel cannot always carry: under WireGuard, Hysteria or any path
+  that encapsulates again, 1500 inside the tunnel means the outer packet exceeds the
+  path, and the connection dies on large responses while small requests still work --
+  which is why such a network looks half alive. 1280 to 9000, out-of-range values are
+  clamped rather than reset, and the value reaches xray through the same path the
+  rest of the connection parameters take.
+
 - Settings has a General section for what belongs to the app itself -- the tray,
   the window, launching at login -- which used to sit under Interface. Theme is a
   dropdown row like Language and Log level, instead of two big swatch tiles. The

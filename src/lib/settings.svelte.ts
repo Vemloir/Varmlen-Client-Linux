@@ -3,6 +3,7 @@ import {
   normalizeSubscriptionUserAgent,
   type SubscriptionUserAgent,
 } from "./subscription-user-agent";
+import { MTU_DEFAULT, normalizeMtu } from "./mtu";
 import type { PinOrder } from "./location-actions";
 
 export type VpnMode = "tun" | "proxy";
@@ -30,6 +31,9 @@ interface Persisted {
   /** Simultaneous location pings; 0 = no limit (every ping is its own short-lived
    *  xray process, so an unbounded burst costs memory and CPU). */
   pingConcurrency: number;
+  /** MTU of the tunnel interface. A path that encapsulates again cannot carry
+   *  Ethernet's 1500 inside the tunnel, and then only large responses die. */
+  mtu: number;
 }
 
 const KEY = "varmlen.settings";
@@ -44,6 +48,7 @@ const DEFAULTS: Persisted = {
   subscriptionAutoUpdate: true,
   pinOrder: "newestLast",
   pingConcurrency: 0,
+  mtu: MTU_DEFAULT,
 };
 
 const LOG_LEVELS: LogLevel[] = ["debug", "warn", "error"];
@@ -73,6 +78,7 @@ function load(): Persisted {
         ? (parsed.pinOrder as PinOrder)
         : DEFAULTS.pinOrder,
       pingConcurrency: sanitizePingConcurrency(parsed.pingConcurrency),
+      mtu: normalizeMtu(parsed.mtu),
     };
   } catch {
     return DEFAULTS;
@@ -94,6 +100,7 @@ class SettingsStore {
   subscriptionAutoUpdate = $state(_initialSettings.subscriptionAutoUpdate);
   pinOrder = $state<PinOrder>(_initialSettings.pinOrder);
   pingConcurrency = $state<number>(_initialSettings.pingConcurrency);
+  mtu = $state<number>(_initialSettings.mtu);
 
   private persist(): void {
     if (!browser) return;
@@ -110,6 +117,7 @@ class SettingsStore {
         subscriptionAutoUpdate: this.subscriptionAutoUpdate,
         pinOrder: this.pinOrder,
         pingConcurrency: this.pingConcurrency,
+        mtu: this.mtu,
       }),
     );
   }
@@ -136,6 +144,12 @@ class SettingsStore {
     this.pingConcurrency = sanitizePingConcurrency(v);
     this.persist();
   }
+  /** Out-of-range values are clamped by `normalizeMtu`, never reset: see mtu.ts. */
+  setMtu(v: number): void {
+    this.mtu = normalizeMtu(v);
+    this.persist();
+  }
+
 }
 
 /** `0` means "no limit"; anything unusable falls back to that default. */

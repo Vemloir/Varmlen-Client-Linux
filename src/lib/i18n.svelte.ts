@@ -177,6 +177,9 @@ const EN: Dict = {
   "settings.logEmpty": "(log is empty - connect once to populate it)",
   "settings.logClear": "Clear",
   "settings.logRefresh": "Refresh",
+  "settings.mtu": "MTU",
+  "settings.mtuSub":
+    "Packet size on the tunnel interface. Lower it (1280-1420) when a network drops large packets; 1500 is Ethernet's default.",
   "settings.pingMethod": "Ping method",
   "settings.pingMethodSub": "How server latency is measured.",
   "settings.pinOrder": "Pinned locations",
@@ -392,6 +395,9 @@ const RU: Dict = {
   "settings.logEmpty": "(лог пуст - заполнится после подключения)",
   "settings.logClear": "Очистить",
   "settings.logRefresh": "Обновить",
+  "settings.mtu": "MTU",
+  "settings.mtuSub":
+    "Размер пакета на туннельном интерфейсе. Уменьши (1280-1420), если сеть режет крупные пакеты; 1500 - стандарт Ethernet.",
   "settings.pingMethod": "Метод пинга",
   "settings.pingMethodSub": "Как измеряется задержка серверов.",
   "settings.pinOrder": "Закреплённые локации",

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { theme } from "$lib/theme.svelte";
+  import { MTU_MAX, MTU_MIN } from "$lib/mtu";
   import { settings, type VpnMode, type PingMethod, type LogLevel } from "$lib/settings.svelte";
   import type { SubscriptionUserAgent } from "$lib/subscription-user-agent";
   import type { PinOrder } from "$lib/location-actions";
@@ -395,6 +396,24 @@
           />
           <span class="slider"></span>
         </span>
+      </label>
+      <label class="row">
+        <div class="row-text">
+          <div class="row-title">{t("settings.mtu")}</div>
+          <div class="row-sub muted">{t("settings.mtuSub")}</div>
+        </div>
+        <input
+          class="num-input"
+          type="number"
+          min={MTU_MIN}
+          max={MTU_MAX}
+          step="20"
+          inputmode="numeric"
+          value={settings.mtu}
+          aria-label={t("settings.mtu")}
+          onchange={(e) =>
+            settings.setMtu(Number((e.currentTarget as HTMLInputElement).value))}
+        />
       </label>
       <div class="row">
         <div class="row-text">

@@ -188,7 +188,24 @@ pub const XRAY_DIAL_MARK: u32 = 0x2024;
 
 /// TUN interface name. Must match the helper's `TUN_IFACE`.
 pub const TUN_NAME: &str = "varmlen0";
-const TUN_MTU: u32 = 1500;
+/// Default MTU of the tunnel interface -- Ethernet's default.
+pub const TUN_MTU: u32 = 1500;
+/// Floor: the minimum IPv6 link MTU (RFC 8200). Below it the interface cannot
+/// carry IPv6 at all, so it is not a usable MTU whatever the user typed.
+pub const TUN_MTU_MIN: u32 = 1280;
+/// Ceiling: jumbo frames are worth allowing on a tunnel, but a typo must not
+/// produce a 65535 interface that black-holes every response.
+pub const TUN_MTU_MAX: u32 = 9000;
+
+/// The MTU to hand xray. Out-of-range values are CLAMPED, not reset: someone who
+/// asked for 1100 meant "smaller than default", and answering with 1500 -- the one
+/// value that does not work on such a network -- would be the worse lie.
+pub fn tun_mtu(value: Option<u32>) -> u32 {
+    match value {
+        None => TUN_MTU,
+        Some(v) => v.clamp(TUN_MTU_MIN, TUN_MTU_MAX),
+    }
+}
 
 /// Private / LAN ranges kept direct when "allow LAN" is on. Explicit CIDRs
 /// rather than `geoip:private` so xray needs no `geoip.dat` asset — we ship only
@@ -1430,7 +1447,7 @@ pub fn dns_probe_urls(server: &VlessServer) -> Vec<String> {
 }
 
 /// The inbound that carries system traffic.
-fn build_inbounds(tun: TunMode) -> Vec<Value> {
+fn build_inbounds(tun: TunMode, mtu: u32) -> Vec<Value> {
     // routeOnly: the sniffed domain is used for routing (domain rules) but the
     // connection keeps its original destination. This avoids the destination
     // override that can sever the source->process binding the `process` matcher
@@ -1446,7 +1463,7 @@ fn build_inbounds(tun: TunMode) -> Vec<Value> {
             "protocol": "tun",
             // Native tun manages ONLY the device (name + mtu). Addressing,
             // routes, DNS redirect and the bypass rules are the helper's job.
-            "settings": { "name": TUN_NAME, "mtu": TUN_MTU },
+            "settings": { "name": TUN_NAME, "mtu": mtu },
             "sniffing": sniffing,
         })],
         TunMode::Tun2socks => vec![json!({
@@ -1591,6 +1608,7 @@ pub fn build_xray_config(
     tun: TunMode,
     allow_lan: bool,
     log_level: &str,
+    mtu: u32,
 ) -> Value {
     let loglevel = xray_loglevel(log_level);
     let OutboundPlan {
@@ -1626,7 +1644,7 @@ pub fn build_xray_config(
         let mut config = json!({
             "log": { "loglevel": loglevel },
             "dns": dns.config,
-            "inbounds": build_inbounds(TunMode::Tun2socks),
+            "inbounds": build_inbounds(TunMode::Tun2socks, mtu),
             "outbounds": proxies,
             "routing": routing
         });
@@ -1656,7 +1674,7 @@ pub fn build_xray_config(
     let mut config = json!({
         "log": { "loglevel": loglevel },
         "dns": dns.config,
-        "inbounds": build_inbounds(tun),
+        "inbounds": build_inbounds(tun, mtu),
         "outbounds": proxies,
         "routing": routing
     });
@@ -1811,6 +1829,7 @@ pub fn generate_xray_config(
     split: SplitInput,
     mode: String,
     allow_lan: bool,
+    mtu: Option<u32>,
 ) -> Result<String, String> {
     validate_server(&server)?;
     let cfg = build_xray_config(
@@ -1820,6 +1839,7 @@ pub fn generate_xray_config(
         TunMode::default(),
         allow_lan,
         "warning",
+        tun_mtu(mtu),
     );
     serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())
 }
@@ -1984,7 +2004,8 @@ mod tests {
             TunMode::XrayNative,
             false,
             "warning",
-        );
+        TUN_MTU,
+    );
 
         let proxy_outbounds = cfg["outbounds"]
             .as_array()
@@ -2055,7 +2076,8 @@ mod tests {
             TunMode::XrayNative,
             false,
             "warning",
-        );
+        TUN_MTU,
+    );
 
         assert_eq!(cfg["outbounds"][0]["protocol"], "wireguard");
         assert!(cfg["outbounds"][0].get("streamSettings").is_none());
@@ -2067,7 +2089,7 @@ mod tests {
             "vless://16ddb21e-5342-4a82-a870-1038b01b8dbc@46.29.238.157:443?type=xhttp&security=reality&encryption=none&sni=gateway.icloud.com&fp=firefox&pbk=PUBKEY&sid=SID&spx=%2F&path=%2F&mode=packet-up#NO",
         )
         .expect("parse");
-        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
 
         let out = &cfg["outbounds"][0];
         assert_eq!(out["protocol"], "vless");
@@ -2122,7 +2144,8 @@ mod tests {
             TunMode::XrayNative,
             false,
             "warning",
-        );
+        TUN_MTU,
+    );
         let proxy = &cfg["outbounds"][0];
         assert_eq!(proxy["tag"], "proxy");
         assert_eq!(
@@ -2194,7 +2217,8 @@ mod tests {
             TunMode::XrayNative,
             false,
             "warning",
-        );
+        TUN_MTU,
+    );
 
         assert_eq!(cfg["dns"]["servers"], json!(["https://9.9.9.9/dns-query"]));
         assert_eq!(cfg["dns"]["queryStrategy"], "UseIPv4");
@@ -2248,7 +2272,8 @@ mod tests {
             TunMode::XrayNative,
             false,
             "warning",
-        );
+        TUN_MTU,
+    );
 
         let servers = cfg["dns"]["servers"].as_array().unwrap();
         assert_eq!(servers.len(), 2);
@@ -2287,7 +2312,8 @@ mod tests {
             TunMode::XrayNative,
             false,
             "warning",
-        );
+        TUN_MTU,
+    );
 
         // One set per operator: 8.8.8.8 and 8.8.4.4 are one anycast network, so
         // DoH once (its bootstrap covers both) plus the provider's own endpoints.
@@ -2342,7 +2368,8 @@ mod tests {
             TunMode::XrayNative,
             false,
             "warning",
-        );
+        TUN_MTU,
+    );
 
         assert_eq!(
             cfg["dns"]["servers"],
@@ -2389,7 +2416,7 @@ mod tests {
             "vless://uuid-1@1.2.3.4:443?type=tcp&security=reality&flow=xtls-rprx-vision&sni=icloud.com&pbk=K&sid=ab&fp=chrome#X",
         )
         .expect("parse");
-        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         let out = &cfg["outbounds"][0];
         assert_eq!(
             out["settings"]["vnext"][0]["users"][0]["flow"],
@@ -2401,7 +2428,7 @@ mod tests {
 
     fn stream_for(uri: &str) -> Value {
         let s = parse_proxy_uri(uri).expect("parse");
-        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         cfg["outbounds"][0]["streamSettings"].clone()
     }
 
@@ -2494,7 +2521,7 @@ mod tests {
         // Guard: the native tun inbound must NOT carry gateway/dns/iptables
         // fields — those are unverified upstream and the helper owns routing.
         let s = parse_proxy_uri("vless://u@1.2.3.4:443?security=reality&pbk=K#X").unwrap();
-        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         let inb = &cfg["inbounds"][0];
         assert_eq!(inb["protocol"], "tun");
         assert_eq!(inb["settings"]["name"], TUN_NAME);
@@ -2509,9 +2536,28 @@ mod tests {
     }
 
     #[test]
+    fn the_tun_inbound_carries_the_requested_mtu() {
+        // A provider path that encapsulates again needs a smaller inner MTU; the
+        // setting has to reach xray, not stay in the frontend.
+        let s = parse_proxy_uri("vless://u@1.2.3.4:443?security=reality&pbk=K#X").unwrap();
+        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning", 1420);
+        assert_eq!(cfg["inbounds"][0]["settings"]["mtu"], 1420);
+    }
+
+    #[test]
+    fn an_out_of_range_mtu_is_clamped_instead_of_reset() {
+        // 1100 meant "smaller than default"; answering with 1500 -- the value that
+        // does not work on such a network -- would be the worse lie.
+        assert_eq!(tun_mtu(Some(1100)), TUN_MTU_MIN);
+        assert_eq!(tun_mtu(Some(70000)), TUN_MTU_MAX);
+        assert_eq!(tun_mtu(Some(1420)), 1420);
+        assert_eq!(tun_mtu(None), TUN_MTU);
+    }
+
+    #[test]
     fn tun2socks_mode_uses_socks_inbound() {
         let s = parse_proxy_uri("vless://u@1.2.3.4:443?security=reality&pbk=K#X").unwrap();
-        let cfg = build_xray_config(&s, &split(), "tun", TunMode::Tun2socks, true, "warning");
+        let cfg = build_xray_config(&s, &split(), "tun", TunMode::Tun2socks, true, "warning", TUN_MTU);
         let inb = &cfg["inbounds"][0];
         assert_eq!(inb["protocol"], "socks");
         assert_eq!(inb["port"], XRAY_SOCKS_PORT);
@@ -2524,7 +2570,7 @@ mod tests {
     fn proxy_and_direct_outbounds_carry_dial_mark() {
         let s =
             parse_proxy_uri("vless://u@1.2.3.4:443?type=xhttp&security=reality&pbk=K#X").unwrap();
-        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         assert_eq!(
             cfg["outbounds"][0]["streamSettings"]["sockopt"]["mark"],
             XRAY_DIAL_MARK
@@ -2613,7 +2659,7 @@ mod tests {
         // inbound is handled by dns-out, and no extra loopback listener exists.
         let s =
             parse_proxy_uri("vless://u@1.2.3.4:443?type=xhttp&security=reality&pbk=K#X").unwrap();
-        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         assert_eq!(
             cfg["dns"]["servers"],
             json!([
@@ -2670,7 +2716,7 @@ mod tests {
             apps: vec!["thunderbird".into()],
             sites: vec!["*.ru".into(), "example.com".into()],
         };
-        let cfg = build_xray_config(&s, &sp, "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &sp, "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         let rules = cfg["routing"]["rules"].as_array().unwrap();
         // Every rule must carry type:field for cross-version safety.
         assert!(
@@ -2699,7 +2745,7 @@ mod tests {
             apps: vec!["firefox".into()],
             sites: vec!["example.com".into()],
         };
-        let cfg = build_xray_config(&s, &sp, "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &sp, "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         assert_eq!(
             cfg["routing"]["rules"].as_array().unwrap().last().unwrap()["outboundTag"],
             "direct"
@@ -2719,7 +2765,7 @@ mod tests {
             sites: vec!["example.com".into()],
             ..Default::default()
         };
-        let cfg = build_xray_config(&s, &sp, "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &sp, "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         assert_eq!(
             cfg["routing"]["rules"].as_array().unwrap().last().unwrap()["outboundTag"],
             "direct"
@@ -2746,7 +2792,7 @@ mod tests {
             apps: vec!["firefox".into(), "telegram-desktop".into()],
             sites: vec!["*.ru".into(), "example.com".into()],
         };
-        let cfg = build_xray_config(&s, &sp, "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &sp, "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         std::fs::write(
             "/tmp/varmlen_xray_sample.json",
             serde_json::to_string_pretty(&cfg).unwrap(),
@@ -2766,7 +2812,7 @@ mod tests {
             apps: vec!["firefox".into()],
             ..Default::default()
         };
-        let cfg = build_xray_config(&s, &sp, "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &sp, "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         let rules = cfg["routing"]["rules"].as_array().unwrap();
         let proc_idx = rules
             .iter()
@@ -2788,7 +2834,7 @@ mod tests {
     fn trojan_outbound_shape() {
         let s =
             parse_proxy_uri("trojan://secretpass@1.2.3.4:443?security=tls&sni=a.com#T").unwrap();
-        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         let out = &cfg["outbounds"][0];
         assert_eq!(out["protocol"], "trojan");
         assert_eq!(out["settings"]["servers"][0]["password"], "secretpass");
@@ -2799,7 +2845,7 @@ mod tests {
     #[test]
     fn shadowsocks_outbound_shape() {
         let s = parse_proxy_uri("ss://YWVzLTI1Ni1nY206c2VjcmV0@1.2.3.4:8388#S").unwrap();
-        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         let out = &cfg["outbounds"][0];
         assert_eq!(out["protocol"], "shadowsocks");
         assert_eq!(out["settings"]["servers"][0]["method"], "aes-256-gcm");
@@ -2815,7 +2861,7 @@ mod tests {
         });
         let b64 = base64::engine::general_purpose::STANDARD.encode(payload.to_string());
         let s = parse_proxy_uri(&format!("vmess://{b64}")).unwrap();
-        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &split(), "tun", TunMode::XrayNative, true, "warning", TUN_MTU);
         let out = &cfg["outbounds"][0];
         assert_eq!(out["protocol"], "vmess");
         assert_eq!(out["settings"]["vnext"][0]["users"][0]["id"], "uuid-vm");
@@ -2827,7 +2873,7 @@ mod tests {
     fn proxy_mode_is_socks_only_no_tun() {
         let s =
             parse_proxy_uri("vless://u@1.2.3.4:443?type=xhttp&security=reality&pbk=K#X").unwrap();
-        let cfg = build_xray_config(&s, &split(), "proxy", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &split(), "proxy", TunMode::XrayNative, true, "warning", TUN_MTU);
         assert_eq!(cfg["inbounds"][0]["protocol"], "socks");
         assert!(cfg["inbounds"]
             .as_array()
@@ -2845,7 +2891,7 @@ mod tests {
             apps: vec!["firefox".into()],
             sites: vec!["example.com".into()],
         };
-        let cfg = build_xray_config(&s, &sp, "proxy", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &sp, "proxy", TunMode::XrayNative, true, "warning", TUN_MTU);
         assert!(rule_for(&cfg, "process").is_none());
         assert_eq!(rule_for(&cfg, "domain").unwrap()["outboundTag"], "direct");
         assert_eq!(
@@ -2863,7 +2909,7 @@ mod tests {
             apps: vec!["firefox".into()],
             sites: vec!["example.com".into()],
         };
-        let cfg = build_xray_config(&s, &sp, "proxy", TunMode::XrayNative, true, "warning");
+        let cfg = build_xray_config(&s, &sp, "proxy", TunMode::XrayNative, true, "warning", TUN_MTU);
         assert!(rule_for(&cfg, "process").is_none());
         assert_eq!(rule_for(&cfg, "domain").unwrap()["outboundTag"], "proxy");
         assert_eq!(

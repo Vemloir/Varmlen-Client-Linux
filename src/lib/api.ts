@@ -218,6 +218,7 @@ export function vpnConnect(
   killswitch: boolean,
   allowLan: boolean,
   logLevel: string,
+  mtu: number,
 ): Promise<HelperResponse> {
   return invoke<HelperResponse>("vpn_connect", {
     server,
@@ -226,6 +227,7 @@ export function vpnConnect(
     killswitch,
     allowLan,
     logLevel,
+    mtu,
   });
 }
 

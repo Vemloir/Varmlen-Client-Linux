@@ -134,6 +134,7 @@ class ConnStore {
         settings.killswitch,
         settings.allowLan,
         settings.logLevel,
+        settings.mtu,
       );
       const remain = MIN_CONNECTING_MS - (Date.now() - startedAt);
       if (remain > 0) await new Promise((r) => setTimeout(r, remain));
