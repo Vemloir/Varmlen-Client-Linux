@@ -162,7 +162,10 @@
   .server-list {
     list-style: none;
     margin: 0;
-    padding: 4px 0 0;
+    /* 10px below the last row, the same inset a row has above its text: the last
+       row's own separator needs room INSIDE the card, otherwise it lands exactly
+       on the card's edge and is invisible -- which is how it looked "not drawn". */
+    padding: 4px 0 10px;
     /* A long press on text is the WebView's own "select text" gesture: it haptics
        and shows a selection handle, which is exactly what the location menu is
        trying to do. Take the text away from it. Inputs and the JSON editor keep

@@ -1127,7 +1127,8 @@
     position: relative;
   }
   .hidden-toggle {
-    margin: 4px 14px 6px;
+    /* the list already leaves 10px under the last row */
+    margin: 0 14px 6px;
   }
 
   /* The location menu. Width is set in JS from the longest item, so a Russian

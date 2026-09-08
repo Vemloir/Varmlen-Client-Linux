@@ -12,7 +12,10 @@
   forgot mid-reading that he had asked to see them. It now lives in the store, and
   drops with the subscription.
 - The last location in a card had no separator under it. Every row draws its line
-  above, so the bottom of the list ended without one.
+  above, so the bottom of the list ended without one. Drawing it at the row's edge
+  was not enough -- that edge IS the card's edge, so the line was invisible; the
+  list now leaves the same 10px below the last row that a row leaves above its
+  text, and the line sits inside the card where it can be seen.
 
 - "Until the next update" is gone as a hiding mode. A background update is not
   something the user did, so hiding a location could undo itself while the app was
