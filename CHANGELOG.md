@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Hiding one location no longer hides the location behind it. Hiding and pinning
+  were keyed by the ENDPOINT, and a provider can put two rows on one endpoint
+  exactly -- the "auto choice" balancer of a JSON profile exposes the same first
+  proxy outbound as the location behind it, so hiding «Finland | Helsinki» also hid
+  «Автовыбор». A row is now keyed by endpoint AND label, the way the selection already
+  resolves it: the row you pointed at is the row that goes away. Renaming a
+  location brings back a hidden one and unpins a pinned one, because that row is
+  gone under a new name. Keys written by older builds are rewritten to the row they
+  can only have meant; when several rows share the old key the intent is lost, so
+  those locations show again rather than stay hidden.
 - The window stops behaving like a browser tab. Right-click no longer opens the
   WebView's Back / Forward / Stop / Reload menu (suppressed everywhere except
   editable fields, where Cut/Copy/Paste is still what the gesture means), and
