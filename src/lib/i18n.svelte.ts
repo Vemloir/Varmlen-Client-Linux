@@ -27,6 +27,10 @@ const EN: Dict = {
   "home.variants": "{n} variants",
   "home.updateFailed": "last update failed: {error}",
 
+  // the card's "hidden locations" line: the count, and the way back
+  "home.hiddenLocations": "{n} hidden",
+  "home.hideHiddenLocations": "Hide them again",
+
   // subscription menu
   "menu.info": "Subscription info",
   "menu.rename": "Rename",
@@ -251,6 +255,9 @@ const RU: Dict = {
   "home.selectionLost": "«{name}» больше нет в подписке. Ничего другое вместо неё не выбирали — выбери локацию сам.",
   "home.variants": "вариантов: {n}",
   "home.updateFailed": "последнее обновление не удалось: {error}",
+
+  "home.hiddenLocations": "Скрыто: {n}",
+  "home.hideHiddenLocations": "Скрыть снова",
 
   "menu.info": "Информация о подписке",
   "menu.rename": "Переименовать",
