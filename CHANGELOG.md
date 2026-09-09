@@ -11,6 +11,11 @@
   state lived in the page component, so navigating re-created it and the card
   forgot mid-reading that he had asked to see them. It now lives in the store, and
   drops with the subscription.
+- The add-apps button lost its plus and took the panel colour. A filled accent plate
+  was the loudest thing on a tab whose content is the list, and the glyph repeated
+  what the label says. The label is plural: the picker is multi-select, so one press
+  does not add one application.
+
 - Split, Apps tab: the search field is gone and adding an application is a button
   across the whole panel width. The field filtered a list the user had to add by
   hand, one entry at a time -- three entries did not need a filter, and the small

@@ -129,7 +129,8 @@ const EN: Dict = {
   "split.sitePlaceholder": "example.com or *.example.com",
   "split.noSitesTitle": "No websites yet",
   "split.noSitesHint": "Add a hostname (example.com) or a wildcard pattern (*.example.com).",
-  "split.addApp": "Add app",
+  // Plural: the picker is multi-select, one press does not add one app.
+  "split.addApp": "Add apps",
   "split.srcInstalled": "Installed",
   "split.srcRunning": "Running",
   "split.searchInstalled": "Search installed apps",
@@ -347,7 +348,7 @@ const RU: Dict = {
   "split.sitePlaceholder": "example.com или *.example.com",
   "split.noSitesTitle": "Пока нет сайтов",
   "split.noSitesHint": "Добавьте домен (example.com) или шаблон (*.example.com).",
-  "split.addApp": "Добавить приложение",
+  "split.addApp": "Добавить приложения",
   "split.srcInstalled": "Установленные",
   "split.srcRunning": "Запущенные",
   "split.searchInstalled": "Поиск установленных приложений",

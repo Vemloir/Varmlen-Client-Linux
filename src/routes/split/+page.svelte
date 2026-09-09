@@ -229,10 +229,7 @@
   </div>
 
   {#if tab === "apps"}
-    <button class="btn btn-primary add-app" onclick={openAddApp}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>
-      <span>{t("split.addApp")}</span>
-    </button>
+    <button class="btn add-app" onclick={openAddApp}>{t("split.addApp")}</button>
 
     {#if split.apps.length === 0}
       <div class="empty-state">
@@ -456,14 +453,11 @@
     border: none;
   }
   /* Adding is the only action this tab offers, so it takes the panel's whole width
-     like the cards around it. The label travels with the glyph: a stretched plate
-     with one small plus in the middle says nothing about what it opens. */
+     and the panel colour of everything around it -- a filled accent plate here would
+     be the loudest thing on the tab while the tab's content is the point. */
   .add-app {
     width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
+    border: none;
   }
 
   .empty-state {
