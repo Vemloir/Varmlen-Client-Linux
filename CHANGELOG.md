@@ -11,6 +11,27 @@
   state lived in the page component, so navigating re-created it and the card
   forgot mid-reading that he had asked to see them. It now lives in the store, and
   drops with the subscription.
+- Split, websites: the asterisk is gone, and the plain name now means what people
+  mean by it. `*.google.com` lost for both audiences -- someone who does not know the
+  syntax sees junk in front of the name and thinks it is not Google, and someone who
+  reads it as a glob concludes the apex is excluded because of the dot. The notation
+  is now: `google.com` covers the domain and everything under it, `.ru` covers a whole
+  zone, and `=google.com` is one host only, asked for on purpose. Each listed entry
+  says in words which of the three it is ("and subdomains", "whole zone", "this host
+  only"), so the meaning is read, not guessed.
+  Read together with the router change below, this is a routing-semantics change: an
+  entry written as a bare host used to be an exact match and now covers subdomains
+  too. That is the meaning the interface promises, and it is what typing a name in a
+  VPN client has always been meant to do. Entries written the old way (`*.host`) are
+  rewritten on load and behave exactly as before.
+
+- xray rule mapping for websites is one function, `site_domain_rule`, with its own
+  tests: bare host -> `domain:` (xray matches the name and any subdomain, not
+  `notgoogle.com`), `.zone` -> `domain:`, `=host` -> `full:`, and the legacy `*.host`
+  still maps to `domain:`. A port in a typed pattern is refused rather than dropped:
+  the router matches domains, and silently rewriting `example.com:8080` would hide the
+  misunderstanding.
+
 - Split, Websites tab: adding websites is the same full-width plate as in Apps, and
   it opens a picker instead of an inline field. You can type a pattern (`example.com`,
   `*.example.com`) or tick suggestions -- country blocks (`*.ru`, `*.by`, `*.kz`,

@@ -1477,6 +1477,32 @@ fn build_inbounds(tun: TunMode, mtu: u32) -> Vec<Value> {
     }
 }
 
+/// One stored website pattern -> the xray domain rule.
+///
+/// The stored string is what the list shows, so the notation has to be readable
+/// without knowing anything about globs. An asterisk is not in it: `*.google.com`
+/// reads as "not google" to someone who does not know the syntax, and as "the apex
+/// is excluded" to someone who does.
+///
+///   - `google.com`   -> `domain:google.com`  the host and everything under it
+///   - `.ru`          -> `domain:ru`          a whole zone
+///   - `=google.com`  -> `full:google.com`    this host only, asked for explicitly
+///   - `*.google.com` -> `domain:google.com`  the old spelling, same meaning
+///
+/// xray's `domain:` matcher is a label-aligned suffix match: it matches the name
+/// itself and any subdomain, and not `notgoogle.com`.
+fn site_domain_rule(site: &str) -> String {
+    let s = site.trim();
+    if let Some(host) = s.strip_prefix('=') {
+        return format!("full:{host}");
+    }
+    let s = s
+        .strip_prefix("*.")
+        .or_else(|| s.strip_prefix('.'))
+        .unwrap_or(s);
+    format!("domain:{s}")
+}
+
 /// Routing rules. Per-app (`process`) and per-site (`domain`) split are BOTH
 /// enforced here — xray's native tun preserves each app's local socket, so the
 /// `process` matcher resolves the owning process (Linux), exactly like sing-box
@@ -1542,16 +1568,13 @@ fn build_route_rules(
         }
     }
 
-    // 4. Per-site split. "*.example.com" -> suffix (domain:), "example.com" -> exact (full:).
+    // 4. Per-site split. See `site_domain_rule` for the notation.
     let domains: Vec<String> = split
         .sites
         .iter()
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
-        .map(|site| match site.strip_prefix("*.") {
-            Some(suffix) => format!("domain:{suffix}"),
-            None => format!("full:{site}"),
-        })
+        .map(|site| site_domain_rule(site))
         .collect();
     if !domains.is_empty() {
         let mut rule = json!({ "type": "field", "domain": domains });
@@ -2730,8 +2753,23 @@ mod tests {
         let site_rule = rule_for(&cfg, "domain").unwrap();
         assert_eq!(site_rule["outboundTag"], "direct");
         let domains = site_rule["domain"].as_array().unwrap();
+        // A plain host is a suffix rule: the apex and everything under it.
         assert!(domains.contains(&json!("domain:ru")));
-        assert!(domains.contains(&json!("full:example.com")));
+        assert!(domains.contains(&json!("domain:example.com")));
+    }
+
+    #[test]
+    fn site_notation_covers_host_zone_and_exact() {
+        // What the user sees is what the router gets, without an asterisk anywhere.
+        assert_eq!(site_domain_rule("google.com"), "domain:google.com");
+        assert_eq!(site_domain_rule(".ru"), "domain:ru");
+        assert_eq!(site_domain_rule("=google.com"), "full:google.com");
+        // The old spelling keeps its meaning, so nothing has to be re-typed.
+        assert_eq!(site_domain_rule("*.google.com"), "domain:google.com");
+        assert_eq!(site_domain_rule(" *.google.com "), "domain:google.com");
+        // A zone and the plain host are the same rule -- xray's `domain:` matches
+        // the name itself and any subdomain.
+        assert_eq!(site_domain_rule(".google.com"), site_domain_rule("google.com"));
     }
 
     #[test]

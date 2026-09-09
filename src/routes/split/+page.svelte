@@ -6,7 +6,13 @@
   import { listInstalledApps, appFromFile, pickFile, type InstalledApp } from "$lib/api";
   import { t } from "$lib/i18n.svelte";
   import { isAndroid } from "$lib/platform";
-  import { isSitePattern, normalizeSitePattern, suggestSiteGroups } from "$lib/site-presets";
+  import {
+    isSitePattern,
+    normalizeSitePattern,
+    siteKindLabelKey,
+    siteRuleKind,
+    suggestSiteGroups,
+  } from "$lib/site-presets";
   import Dropdown from "$lib/components/Dropdown.svelte";
 
   type Tab = "apps" | "websites";
@@ -97,11 +103,17 @@
   let showAddSite = $state(false);
   let siteSelected = $state<Set<string>>(new Set());
   let siteNotice = $state("");
+  // "Only this domain" is asked for on purpose; the plain form means the domain and
+  // everything under it, which is what almost everyone typing a name wants.
+  let siteExactOnly = $state(false);
+  const draftPattern = $derived(normalizeSitePattern(siteDraft));
+  const draftKind = $derived(siteRuleKind(draftPattern));
   const sitePresets = $derived(suggestSiteGroups(split.sites.map((s) => s.pattern)));
   function openAddSite(): void {
     siteSelected = new Set();
     siteDraft = "";
     siteNotice = "";
+    siteExactOnly = false;
     showAddSite = true;
   }
   function toggleSiteSelect(pattern: string): void {
@@ -111,8 +123,14 @@
     siteSelected = next;
   }
   function commitTypedSite(): void {
-    const pattern = normalizeSitePattern(siteDraft);
+    let pattern = normalizeSitePattern(siteDraft);
     if (!pattern) return;
+    const kind = siteRuleKind(pattern);
+    if (siteExactOnly && kind === "zone") {
+      siteNotice = t("split.siteExactNeedsHost");
+      return;
+    }
+    if (siteExactOnly && kind === "suffix") pattern = `=${pattern}`;
     if (!isSitePattern(pattern)) {
       // Not dropped silently: a stored pattern the router cannot match would sit in
       // the list looking like a rule while doing nothing.
@@ -305,7 +323,10 @@
       <div class="list">
         {#each split.sites as s (s.id)}
           <div class="list-row">
-            <span class="pattern">{s.pattern}</span>
+            <div class="site-text">
+              <span class="pattern">{s.pattern}</span>
+              <span class="site-kind dim">{t(siteKindLabelKey(siteRuleKind(s.pattern)))}</span>
+            </div>
             <button class="btn-ghost trash" onclick={() => split.removeSite(s.id)} aria-label="Remove">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
             </button>
@@ -413,6 +434,22 @@
         <input type="text" placeholder={t("split.sitePlaceholder")} bind:value={siteDraft} />
         <button class="btn btn-primary" type="submit" disabled={!siteDraft.trim()}>{t("import.add")}</button>
       </form>
+      <label class="opt-row">
+        <span class="opt-text">
+          <span class="opt-title">{t("split.siteExactOnly")}</span>
+          <span class="opt-hint muted">{t("split.siteExactOnlyHint")}</span>
+        </span>
+        <span class="switch">
+          <input
+            type="checkbox"
+            checked={siteExactOnly}
+            disabled={draftKind === "zone"}
+            onchange={(e) => (siteExactOnly = (e.currentTarget as HTMLInputElement).checked)}
+          />
+          <span class="slider"></span>
+        </span>
+      </label>
+      <p class="muted notation">{t("split.siteNotationHint")}</p>
       {#if siteNotice}
         <p class="site-notice" role="status">{siteNotice}</p>
       {/if}
@@ -548,6 +585,42 @@
   .panel-add {
     width: 100%;
     border: none;
+  }
+
+  .site-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .site-kind {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .opt-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .opt-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .opt-title {
+    font-size: 13px;
+  }
+  .opt-hint {
+    font-size: 11px;
+  }
+  .notation {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.45;
   }
 
   .site-notice {

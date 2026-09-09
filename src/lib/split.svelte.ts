@@ -1,6 +1,7 @@
 import { browser } from "$app/environment";
 import { applySplitLive, type SplitInput } from "$lib/api";
 import { isLinux } from "$lib/platform";
+import { migrateSitePatterns } from "./site-presets";
 
 export type Mode = "selective" | "general";
 
@@ -115,7 +116,19 @@ function load(): Persisted {
   }
 }
 
-const _initialSplit = load();
+// Patterns are shown to the user, so they are stored in the current notation. The
+// rewrite preserves meaning -- the router maps the old "*.host" spelling to the same
+// rule as the plain host -- so this is a display fix, not a routing change.
+const _initialSplit = (() => {
+  const loaded = load();
+  return {
+    ...loaded,
+    sites: {
+      general: migrateSitePatterns(loaded.sites.general).sites,
+      selective: migrateSitePatterns(loaded.sites.selective).sites,
+    },
+  };
+})();
 
 class SplitStore {
   appsMode = $state<Mode>(_initialSplit.appsMode);
