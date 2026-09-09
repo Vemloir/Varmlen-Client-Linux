@@ -1,7 +1,7 @@
 import { browser } from "$app/environment";
 import { applySplitLive, type SplitInput } from "$lib/api";
 import { isLinux } from "$lib/platform";
-import { migrateSitePatterns } from "./site-presets";
+import { migrateSitePatterns } from "./site-pattern";
 
 export type Mode = "selective" | "general";
 

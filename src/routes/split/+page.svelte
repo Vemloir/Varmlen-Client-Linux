@@ -11,8 +11,7 @@
     normalizeSitePattern,
     siteKindLabelKey,
     siteRuleKind,
-    suggestSiteGroups,
-  } from "$lib/site-presets";
+  } from "$lib/site-pattern";
   import Dropdown from "$lib/components/Dropdown.svelte";
 
   type Tab = "apps" | "websites";
@@ -97,27 +96,19 @@
     { value: "selective", label: t("split.modeSelective") },
   ]);
 
+  // Adding a website is a window with one field: type a domain, press Add. The
+  // placeholder carries the notation (a leading dot means a whole zone), so the
+  // window needs neither a paragraph of instructions nor a list of suggestions.
   let siteDraft = $state("");
-  // The websites picker: type one pattern, or tick through suggestions. Presets are
-  // filtered against what is already listed, so the list never offers what it has.
-  let showAddSite = $state(false);
-  let siteSelected = $state<Set<string>>(new Set());
   let siteNotice = $state("");
+  let showAddSite = $state(false);
 
-  const sitePresets = $derived(suggestSiteGroups(split.sites.map((s) => s.pattern)));
   function openAddSite(): void {
-    siteSelected = new Set();
     siteDraft = "";
     siteNotice = "";
     showAddSite = true;
   }
-  function toggleSiteSelect(pattern: string): void {
-    const next = new Set(siteSelected);
-    if (next.has(pattern)) next.delete(pattern);
-    else next.add(pattern);
-    siteSelected = next;
-  }
-  function commitTypedSite(): void {
+  function addSiteFromDraft(): void {
     const pattern = normalizeSitePattern(siteDraft);
     if (!pattern) return;
     if (!isSitePattern(pattern)) {
@@ -126,13 +117,13 @@
       siteNotice = t("split.siteInvalid");
       return;
     }
+    if (split.sites.some((s) => s.pattern === pattern)) {
+      siteNotice = t("split.siteDuplicate");
+      return;
+    }
     split.addSite(pattern);
-    siteDraft = "";
-    siteNotice = "";
-  }
-  function confirmAddSites(): void {
-    for (const pattern of siteSelected) split.addSite(pattern);
-    siteSelected = new Set();
+    // Closed on success: the row appearing in the list behind the window is the
+    // confirmation. A refusal leaves the window open with the reason inside it.
     showAddSite = false;
   }
   let showAddApp = $state(false);
@@ -419,39 +410,21 @@
         </button>
       </header>
 
-      <form class="site-add" onsubmit={(e) => { e.preventDefault(); commitTypedSite(); }}>
-        <input type="text" placeholder={t("split.sitePlaceholder")} bind:value={siteDraft} />
+      <form class="site-add" onsubmit={(e) => { e.preventDefault(); addSiteFromDraft(); }}>
+        <input
+          type="text"
+          placeholder={t("split.sitePlaceholder")}
+          aria-label={t("split.sitePlaceholder")}
+          autocapitalize="none"
+          autocomplete="off"
+          spellcheck="false"
+          bind:value={siteDraft}
+        />
         <button class="btn btn-primary" type="submit" disabled={!siteDraft.trim()}>{t("import.add")}</button>
       </form>
-      <p class="muted notation">{t("split.siteNotationHint")}</p>
       {#if siteNotice}
         <p class="site-notice" role="status">{siteNotice}</p>
       {/if}
-
-      <div class="picker">
-        {#each sitePresets as group (group.id)}
-          <div class="picker-group muted">{t(group.labelKey)}</div>
-          {#each group.patterns as pattern (pattern)}
-            <button class="picker-row" class:selected={siteSelected.has(pattern)} onclick={() => toggleSiteSelect(pattern)}>
-              <span class="pattern">{pattern}</span>
-              {#if siteSelected.has(pattern)}
-                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M5 12.5L10 17.5L19.5 8" stroke="var(--accent)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              {/if}
-            </button>
-          {/each}
-        {/each}
-        {#if sitePresets.length === 0}
-          <div class="picker-msg muted">{t("split.noSitePresets")}</div>
-        {/if}
-      </div>
-
-      <div class="modal-actions">
-        <button class="btn btn-primary" onclick={confirmAddSites} disabled={siteSelected.size === 0}>
-          {t("split.addSelected", { n: siteSelected.size })}
-        </button>
-      </div>
     </div>
   </div>
 {/if}
@@ -574,22 +547,10 @@
     letter-spacing: 0.08em;
   }
 
-  .notation {
-    margin: 0;
-    font-size: 12px;
-    line-height: 1.45;
-  }
-
   .site-notice {
     margin: -2px 0 0;
     font-size: 12px;
     color: var(--danger);
-  }
-  .picker-group {
-    padding: 10px 10px 4px;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
   }
 
   .empty-state {

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Split, websites: adding a website is a window with one field again. The suggestions
+  list, the tick-set, the "Add (N)" counter and the paragraph explaining the notation
+  are all gone; the field placeholder ("example.com or .ru") carries the notation in
+  five characters instead. Every one of those pieces asked the user to read the
+  interface before using it, and each one made the single obvious action -- type a
+  name, press Add -- harder to find. The window closes when the entry is accepted,
+  because the row appearing in the list behind it is the confirmation; a refusal keeps
+  it open and says why ("Not a domain or a zone.", "Already in the list."), which the
+  silent duplicate-swallow used to hide. The helper module is renamed to
+  `site-pattern.ts` and no longer carries presets.
 - The "Hide locations" setting is gone. Hiding now has one behaviour: the row stays
   hidden until the user shows it again on the card, and the only other way back is
   removing the subscription and importing it again. A refresh -- background or

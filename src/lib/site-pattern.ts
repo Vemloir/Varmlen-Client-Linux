@@ -1,5 +1,5 @@
 /**
- * Notation, suggestions and input normalisation for the websites picker.
+ * Notation and input normalisation for website rules.
  *
  * There is no asterisk in this notation. `*.google.com` loses both audiences: a
  * person who does not know the syntax sees junk in front of the name and thinks it
@@ -8,7 +8,7 @@
  *
  *   - `google.com`   the host and everything under it  -> xray `domain:google.com`
  *   - `.ru`          a whole zone                       -> xray `domain:ru`
- *   - `=google.com`  this host only, asked for on purpose -> xray `full:google.com`
+ *   - `=google.com`  this host only, for whoever types it that way -> `full:google.com`
  *
  * xray's `domain:` matcher is a label-aligned suffix match -- it matches the name
  * itself and any subdomain, and not `notgoogle.com` -- so the plain form covers the
@@ -17,38 +17,6 @@
  */
 
 export type SiteRuleKind = "suffix" | "zone" | "exact";
-
-export type SitePresetGroup = {
-  id: string;
-  labelKey: string;
-  patterns: string[];
-};
-
-/**
- * Country zones come first because one entry covers every host under a ccTLD, which
- * is what split tunnelling is used for; services come second for people who list a
- * handful of names instead. `*.ir` -- now `.ir` -- stays in the list on purpose:
- * domestic Iranian hosts are the entries an Iranian user keeps direct.
- */
-export const SITE_PRESET_GROUPS: SitePresetGroup[] = [
-  {
-    id: "region",
-    labelKey: "split.presetRegion",
-    patterns: [".ru", ".su", ".by", ".kz", ".ua", ".uz", ".ir", ".cn"],
-  },
-  {
-    id: "services",
-    labelKey: "split.presetServices",
-    patterns: [
-      "google.com",
-      "youtube.com",
-      "googlevideo.com",
-      "github.com",
-      "twitch.tv",
-      "discord.com",
-    ],
-  },
-];
 
 /**
  * Clean what was typed into a stored pattern: surrounding space, a scheme, a path,
@@ -126,19 +94,6 @@ export function isSitePattern(value: string): boolean {
   if (labels[labels.length - 1].length < 2) return false;
   // Only a zone may name a single label; a host has to be a whole domain.
   return kind === "zone" || labels.length >= 2;
-}
-
-/**
- * Presets minus what is already listed. An entry that is already in the list is not
- * a suggestion, it is a fact about the list, and offering it again invites a
- * duplicate that `addSite` would silently swallow.
- */
-export function suggestSiteGroups(existing: string[]): SitePresetGroup[] {
-  const have = new Set(existing.map(normalizeSitePattern).filter(Boolean));
-  return SITE_PRESET_GROUPS.map((group) => ({
-    ...group,
-    patterns: group.patterns.filter((pattern) => !have.has(normalizeSitePattern(pattern))),
-  })).filter((group) => group.patterns.length > 0);
 }
 
 /**
