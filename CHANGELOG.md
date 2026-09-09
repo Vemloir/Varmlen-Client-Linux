@@ -11,6 +11,14 @@
   state lived in the page component, so navigating re-created it and the card
   forgot mid-reading that he had asked to see them. It now lives in the store, and
   drops with the subscription.
+- Split, Apps tab: the search field is gone and adding an application is a button
+  across the whole panel width. The field filtered a list the user had to add by
+  hand, one entry at a time -- three entries did not need a filter, and the small
+  `+` plate next to it was the only real action on the tab. The button carries its
+  label next to the glyph, because a stretched plate with one small plus in the
+  middle says nothing about what it opens. The Websites tab is untouched while its
+  layout is still being decided.
+
 - One rounding family across the app: `--radius-sm` 8 -> 12, `--radius` 12 -> 18,
   `--radius-lg` 16 -> 24. Controls that are a fraction of a card now look like they
   were cut from the same sheet. The selector, the mode panel, the search field and

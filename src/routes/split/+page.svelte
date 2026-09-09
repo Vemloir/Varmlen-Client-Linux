@@ -90,7 +90,6 @@
     { value: "selective", label: t("split.modeSelective") },
   ]);
 
-  let appQuery = $state("");
   let siteDraft = $state("");
   let showAddApp = $state(false);
   let pickerQuery = $state("");
@@ -152,12 +151,6 @@
     }
     showAddApp = false;
   }
-
-  const filteredApps = $derived(
-    split.apps.filter((a) =>
-      a.name.toLowerCase().includes(appQuery.trim().toLowerCase()),
-    ),
-  );
 
   // The mode card reflects the ACTIVE tab — apps and sites have independent
   // modes, so switching tabs shows (and edits) that category's mode + count.
@@ -236,12 +229,10 @@
   </div>
 
   {#if tab === "apps"}
-    <div class="apps-controls">
-      <input class="search" type="search" placeholder={t("split.searchApps")} bind:value={appQuery} />
-      <button class="btn btn-primary add-app" onclick={openAddApp} aria-label={t("split.addApp")}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>
-      </button>
-    </div>
+    <button class="btn btn-primary add-app" onclick={openAddApp}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>
+      <span>{t("split.addApp")}</span>
+    </button>
 
     {#if split.apps.length === 0}
       <div class="empty-state">
@@ -250,7 +241,7 @@
       </div>
     {:else}
       <div class="list">
-        {#each filteredApps as a (a.id)}
+        {#each split.apps as a (a.id)}
           <div class="list-row">
             {@render appIcon(a.icon)}
             <div class="app-text">
@@ -266,9 +257,6 @@
             </label>
           </div>
         {/each}
-        {#if filteredApps.length === 0}
-          <div class="list-row empty muted">{t("split.noAppsMatch")}</div>
-        {/if}
       </div>
     {/if}
   {:else}
@@ -463,27 +451,19 @@
     border-radius: var(--radius-sm);
   }
 
-  .apps-controls {
-    display: flex;
-    gap: 8px;
-  }
-  /* Search, mode panel, selector and the list under them: one panel colour. */
-  .apps-controls .search {
-    flex: 1;
-    background: var(--bg-elev);
-    border: none;
-  }
   .site-add input {
     background: var(--bg-elev);
     border: none;
   }
+  /* Adding is the only action this tab offers, so it takes the panel's whole width
+     like the cards around it. The label travels with the glyph: a stretched plate
+     with one small plus in the middle says nothing about what it opens. */
   .add-app {
-    width: 38px;
-    flex-shrink: 0;
-    padding: 0;
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
   }
 
   .empty-state {
@@ -525,11 +505,6 @@
     font-size: 11px;
     font-family: ui-monospace, "JetBrains Mono", monospace;
     margin-top: 1px;
-  }
-
-  .empty {
-    justify-content: center;
-    font-size: 13px;
   }
 
   .site-add {
