@@ -33,6 +33,11 @@ describe("card surface contract", () => {
     );
     expect(split).toMatch(/\.empty-state\s*\{[^}]*border:\s*none;/s);
     expect(split).toMatch(/\.picker\s*\{[^}]*border:\s*none;/s);
+    // No platform clear button in the apps search -- it is a control the theme
+    // does not own.
+    expect(css).toMatch(
+      /input\[type="search"\]::-webkit-search-cancel-button\s*\{[^}]*display:\s*none;/s,
+    );
     // Inside the apps window every surface is the application background, so the
     // separator has to be the lighter colour -- the old one would be invisible.
     expect(split).toMatch(/\.picker\s*\{[^}]*background:\s*var\(--bg\);/s);

@@ -191,6 +191,14 @@ a {
   }
 }
 
+/* The platform's own clear button is a control the theme does not own, and in a
+   narrow field it eats the room the query needs. */
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
 /* ---------- common ---------- */
 .btn {
   border: 1px solid var(--border);
