@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Split, the apps window: every surface inside it is the application background now --
+  the list plate, the search field, and both buttons, which also lost their outlines.
+  On a card that is one step lighter they read as cut out of it instead of as boxes
+  glued on top. The separator between rows flipped to the lighter colour, because a
+  line the colour of the plate it is drawn on is not a separator.
 - Split, websites: the add window is centred in the client window instead of sitting
   on the bottom edge -- this is a desktop client, and a dialog that belongs to the
   window belongs in the middle of it (the Android client keeps the sheet at the bottom,

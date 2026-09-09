@@ -33,8 +33,17 @@ describe("card surface contract", () => {
     );
     expect(split).toMatch(/\.empty-state\s*\{[^}]*border:\s*none;/s);
     expect(split).toMatch(/\.picker\s*\{[^}]*border:\s*none;/s);
+    // Inside the apps window every surface is the application background, so the
+    // separator has to be the lighter colour -- the old one would be invisible.
+    expect(split).toMatch(/\.picker\s*\{[^}]*background:\s*var\(--bg\);/s);
     expect(split).toMatch(
-      /\.picker-row \+ \.picker-row\s*\{[^}]*border-top:\s*1px solid var\(--bg\);/s,
+      /\.picker-row \+ \.picker-row\s*\{[^}]*border-top:\s*1px solid var\(--bg-elev\);/s,
+    );
+    expect(split).toMatch(
+      /\.modal input\[type="search"\]\s*\{[^}]*background:\s*var\(--bg\);[^}]*border:\s*none;/s,
+    );
+    expect(split).toMatch(
+      /\.modal-actions \.btn\s*\{[^}]*background:\s*var\(--bg\);[^}]*border:\s*none;/s,
     );
   });
 

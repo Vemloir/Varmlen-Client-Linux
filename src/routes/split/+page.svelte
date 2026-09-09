@@ -381,7 +381,7 @@
         {#if !isAndroid}
           <button class="btn" onclick={pickFromFile}>{t("split.chooseFile")}</button>
         {/if}
-        <button class="btn btn-primary" onclick={confirmAdd} disabled={selected.size === 0}>
+        <button class="btn" onclick={confirmAdd} disabled={selected.size === 0}>
           {t("split.addSelected", { n: selected.size })}
         </button>
       </div>
@@ -676,7 +676,7 @@
     height: 0;
     overflow: hidden;
     border-radius: 2px;
-    background: var(--bg-elev-3);
+    background: var(--bg);
     transition: height var(--transition);
   }
   .scan-bar.active {
@@ -703,7 +703,9 @@
     overflow-y: auto;
     border: none;
     border-radius: var(--radius-sm);
-    background: var(--bg-elev-2);
+    /* The application background: inside a card that is one step lighter, the plate
+       reads as cut out of it rather than as a box glued on top. */
+    background: var(--bg);
   }
   .picker-row {
     width: 100%;
@@ -723,10 +725,12 @@
     contain-intrinsic-size: auto 52px;
   }
   .picker-row + .picker-row {
-    border-top: 1px solid var(--bg);
+    /* The separator used the panel colour while the panel was lighter than this;
+       on a --bg plate the line has to be the lighter one. */
+    border-top: 1px solid var(--bg-elev);
   }
   .picker-row:hover:not(:disabled) {
-    background: var(--bg-elev-3);
+    background: var(--bg-elev);
   }
   .picker-row:disabled {
     opacity: 0.55;
@@ -742,6 +746,17 @@
   }
   .small-note {
     font-size: 12px;
+  }
+  .modal input[type="search"] {
+    background: var(--bg);
+    border: none;
+  }
+  .modal-actions .btn {
+    background: var(--bg);
+    border: none;
+  }
+  .modal-actions .btn:hover:not(:disabled) {
+    background: var(--bg-elev-2);
   }
   .modal-actions {
     display: flex;
