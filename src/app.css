@@ -173,6 +173,18 @@ a {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* The user can ask the system for less motion; a client that ignores that is not
+   being polite, it is being sick-making. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ---------- common ---------- */
 .btn {
   border: 1px solid var(--border);

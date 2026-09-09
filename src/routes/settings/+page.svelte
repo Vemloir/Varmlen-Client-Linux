@@ -447,7 +447,7 @@
           <div class="row-sub muted">{t("settings.pingConcurrencySub")}</div>
         </div>
         <input
-          class="num-input"
+          class="num-input narrow"
           type="number"
           min="0"
           max="256"
@@ -616,7 +616,7 @@
                   {#if isDownloading && prog}
                     <div class="progress" aria-label="downloading">
                       <div class="progress-track">
-                        <div class="progress-fill" style="width: {pct}%"></div>
+                        <div class="progress-fill" style="transform: scaleX({pct / 100})"></div>
                       </div>
                       <div class="progress-meta muted">
                         {formatBytes(prog.downloaded)}
@@ -940,6 +940,11 @@
     -moz-appearance: textfield;
     appearance: textfield;
   }
+  /* A counter of pings holds three digits, an MTU holds four: the same width for
+     both makes the small number look like a field that lost half its value. */
+  .num-input.narrow {
+    width: 32px;
+  }
 
   /* ---------- version-picker modal ---------- */
   .modal-backdrop {
@@ -1117,9 +1122,13 @@
     overflow: hidden;
   }
   .progress-fill {
+    /* Scaled, not widened: a download bar updates many times a second, and a width
+       transition lays the page out again on every frame. */
     height: 100%;
+    width: 100%;
+    transform-origin: left center;
     background: var(--accent);
-    transition: width 120ms linear;
+    transition: transform 120ms linear;
   }
   .progress-meta {
     font-size: 11px;

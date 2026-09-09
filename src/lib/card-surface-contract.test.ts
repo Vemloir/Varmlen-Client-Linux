@@ -60,6 +60,12 @@ describe("card surface contract", () => {
     expect(settings).toMatch(
       /\.num-input\s*\{[^}]*background:\s*var\(--bg\);[^}]*text-align:\s*center;/s,
     );
+    // One width for a four-digit MTU and a three-digit ping counter makes the
+    // small number look like a field that lost half of its value.
+    expect(settings).toMatch(/\.num-input\.narrow\s*\{[^}]*width:\s*32px;/s);
+    expect(settings).toMatch(
+      /class="num-input narrow"[^>]*\n\s*type="number"[^>]*\n\s*min="0"/,
+    );
   });
 
   it("shows the Tauri application version in Settings", () => {
