@@ -6,6 +6,7 @@
   import { listInstalledApps, appFromFile, pickFile, type InstalledApp } from "$lib/api";
   import { t } from "$lib/i18n.svelte";
   import { isAndroid } from "$lib/platform";
+  import { isSitePattern, normalizeSitePattern, suggestSiteGroups } from "$lib/site-presets";
   import Dropdown from "$lib/components/Dropdown.svelte";
 
   type Tab = "apps" | "websites";
@@ -91,6 +92,42 @@
   ]);
 
   let siteDraft = $state("");
+  // The websites picker: type one pattern, or tick through suggestions. Presets are
+  // filtered against what is already listed, so the list never offers what it has.
+  let showAddSite = $state(false);
+  let siteSelected = $state<Set<string>>(new Set());
+  let siteNotice = $state("");
+  const sitePresets = $derived(suggestSiteGroups(split.sites.map((s) => s.pattern)));
+  function openAddSite(): void {
+    siteSelected = new Set();
+    siteDraft = "";
+    siteNotice = "";
+    showAddSite = true;
+  }
+  function toggleSiteSelect(pattern: string): void {
+    const next = new Set(siteSelected);
+    if (next.has(pattern)) next.delete(pattern);
+    else next.add(pattern);
+    siteSelected = next;
+  }
+  function commitTypedSite(): void {
+    const pattern = normalizeSitePattern(siteDraft);
+    if (!pattern) return;
+    if (!isSitePattern(pattern)) {
+      // Not dropped silently: a stored pattern the router cannot match would sit in
+      // the list looking like a rule while doing nothing.
+      siteNotice = t("split.siteInvalid");
+      return;
+    }
+    split.addSite(pattern);
+    siteDraft = "";
+    siteNotice = "";
+  }
+  function confirmAddSites(): void {
+    for (const pattern of siteSelected) split.addSite(pattern);
+    siteSelected = new Set();
+    showAddSite = false;
+  }
   let showAddApp = $state(false);
   let pickerQuery = $state("");
   let installed = $state<InstalledApp[]>([]);
@@ -229,7 +266,7 @@
   </div>
 
   {#if tab === "apps"}
-    <button class="btn add-app" onclick={openAddApp}>{t("split.addApp")}</button>
+    <button class="btn panel-add" onclick={openAddApp}>{t("split.addApp")}</button>
 
     {#if split.apps.length === 0}
       <div class="empty-state">
@@ -257,10 +294,7 @@
       </div>
     {/if}
   {:else}
-    <form class="site-add" onsubmit={(e) => { e.preventDefault(); split.addSite(siteDraft); siteDraft = ""; }}>
-      <input type="text" placeholder={t("split.sitePlaceholder")} bind:value={siteDraft} />
-      <button class="btn btn-primary" type="submit" disabled={!siteDraft.trim()}>{t("import.add")}</button>
-    </form>
+    <button class="btn panel-add" onclick={openAddSite}>{t("split.addSites")}</button>
 
     {#if split.sites.length === 0}
       <div class="empty-state">
@@ -349,6 +383,62 @@
         {/if}
         <button class="btn btn-primary" onclick={confirmAdd} disabled={selected.size === 0}>
           {t("split.addSelected", { n: selected.size })}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if showAddSite}
+  <div class="modal-backdrop" onclick={() => (showAddSite = false)} role="presentation">
+    <div
+      class="modal card"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.key === "Escape" && (showAddSite = false)}
+      role="dialog"
+      tabindex="-1"
+      aria-modal="true"
+      aria-label={t("split.addSites")}
+    >
+      <header class="modal-head">
+        <h2>{t("split.addSites")}</h2>
+        <button class="icon-btn" onclick={() => (showAddSite = false)} aria-label={t("common.close")}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+      </header>
+
+      <form class="site-add" onsubmit={(e) => { e.preventDefault(); commitTypedSite(); }}>
+        <input type="text" placeholder={t("split.sitePlaceholder")} bind:value={siteDraft} />
+        <button class="btn btn-primary" type="submit" disabled={!siteDraft.trim()}>{t("import.add")}</button>
+      </form>
+      {#if siteNotice}
+        <p class="site-notice" role="status">{siteNotice}</p>
+      {/if}
+
+      <div class="picker">
+        {#each sitePresets as group (group.id)}
+          <div class="picker-group muted">{t(group.labelKey)}</div>
+          {#each group.patterns as pattern (pattern)}
+            <button class="picker-row" class:selected={siteSelected.has(pattern)} onclick={() => toggleSiteSelect(pattern)}>
+              <span class="pattern">{pattern}</span>
+              {#if siteSelected.has(pattern)}
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12.5L10 17.5L19.5 8" stroke="var(--accent)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              {/if}
+            </button>
+          {/each}
+        {/each}
+        {#if sitePresets.length === 0}
+          <div class="picker-msg muted">{t("split.noSitePresets")}</div>
+        {/if}
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick={confirmAddSites} disabled={siteSelected.size === 0}>
+          {t("split.addSelected", { n: siteSelected.size })}
         </button>
       </div>
     </div>
@@ -452,12 +542,24 @@
     background: var(--bg-elev);
     border: none;
   }
-  /* Adding is the only action this tab offers, so it takes the panel's whole width
-     and the panel colour of everything around it -- a filled accent plate here would
-     be the loudest thing on the tab while the tab's content is the point. */
-  .add-app {
+  /* Adding is the only action either tab offers, so it takes the panel's whole
+     width and the panel colour of everything around it -- a filled accent plate here
+     would be the loudest thing on a tab whose content is the list. */
+  .panel-add {
     width: 100%;
     border: none;
+  }
+
+  .site-notice {
+    margin: -2px 0 0;
+    font-size: 12px;
+    color: var(--danger);
+  }
+  .picker-group {
+    padding: 10px 10px 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
   .empty-state {

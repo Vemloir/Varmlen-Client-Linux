@@ -11,6 +11,17 @@
   state lived in the page component, so navigating re-created it and the card
   forgot mid-reading that he had asked to see them. It now lives in the store, and
   drops with the subscription.
+- Split, Websites tab: adding websites is the same full-width plate as in Apps, and
+  it opens a picker instead of an inline field. You can type a pattern (`example.com`,
+  `*.example.com`) or tick suggestions -- country blocks (`*.ru`, `*.by`, `*.kz`,
+  `*.ua`, `*.uz`, `*.su`, `*.ir`, `*.cn`) and popular services -- and the suggestions
+  are filtered against what is already listed, so the picker never offers what the
+  list already has. What you typed is normalised before it is stored (a pasted
+  `https://example.com/vpn` becomes `example.com`) and a pattern the router cannot
+  match is refused with a word, not quietly written into the list as a rule that does
+  nothing. A port is refused rather than dropped, because the router matches domains
+  and silently rewriting `example.com:8080` would hide the misunderstanding.
+
 - The add-apps button lost its plus and took the panel colour. A filled accent plate
   was the loudest thing on a tab whose content is the list, and the glyph repeated
   what the label says. The label is plural: the picker is multi-select, so one press
