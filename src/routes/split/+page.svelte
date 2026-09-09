@@ -237,14 +237,8 @@
 
   {#if tab === "apps"}
     <div class="apps-controls">
-      <div class="field">
-        <svg class="field-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="11" cy="11" r="6.4" stroke="currentColor" stroke-width="1.8" />
-          <path d="M15.9 15.9L20.5 20.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-        </svg>
-        <input class="search" type="search" placeholder={t("split.searchApps")} bind:value={appQuery} />
-      </div>
-      <button class="btn add-app" onclick={openAddApp} aria-label={t("split.addApp")}>
+      <input class="search" type="search" placeholder={t("split.searchApps")} bind:value={appQuery} />
+      <button class="btn btn-primary add-app" onclick={openAddApp} aria-label={t("split.addApp")}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>
       </button>
     </div>
@@ -279,12 +273,7 @@
     {/if}
   {:else}
     <form class="site-add" onsubmit={(e) => { e.preventDefault(); split.addSite(siteDraft); siteDraft = ""; }}>
-      <div class="field">
-        <svg class="field-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 5.6v12.8M5.6 12h12.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-        </svg>
-        <input type="text" placeholder={t("split.sitePlaceholder")} bind:value={siteDraft} />
-      </div>
+      <input type="text" placeholder={t("split.sitePlaceholder")} bind:value={siteDraft} />
       <button class="btn btn-primary" type="submit" disabled={!siteDraft.trim()}>{t("import.add")}</button>
     </form>
 
@@ -331,13 +320,7 @@
           </svg>
         </button>
       </header>
-      <div class="field">
-        <svg class="field-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="11" cy="11" r="6.4" stroke="currentColor" stroke-width="1.8" />
-          <path d="M15.9 15.9L20.5 20.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-        </svg>
-        <input type="search" placeholder={t("split.searchInstalled")} bind:value={pickerQuery} />
-      </div>
+      <input type="search" placeholder={t("split.searchInstalled")} bind:value={pickerQuery} />
       <div class="scan-bar" class:active={pickerLoading} aria-hidden="true">
         <div class="scan-fill"></div>
       </div>
@@ -485,34 +468,14 @@
     gap: 8px;
   }
   /* Search, mode panel, selector and the list under them: one panel colour. */
-  .apps-controls .search,
-  .site-add input {
+  .apps-controls .search {
+    flex: 1;
     background: var(--bg-elev);
     border: none;
   }
-
-  /* A glyph inside the field, so the two rows that are a plate plus a button stop
-     reading as the same control. They do different jobs: the field on the Apps tab
-     only filters what is already listed below it and creates nothing, while the one
-     on the Websites tab is a new entry waiting to be committed. A magnifier is
-     therefore a filter everywhere in this app, a plus is a new entry, and the
-     action next to a filter is quiet while the action that commits is the only
-     filled button on the page. */
-  .field {
-    position: relative;
-    flex: 1;
-    min-width: 0;
-  }
-  .field-icon {
-    position: absolute;
-    left: 11px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-muted);
-    pointer-events: none;
-  }
-  .field input {
-    padding-left: 34px;
+  .site-add input {
+    background: var(--bg-elev);
+    border: none;
   }
   .add-app {
     width: 38px;
