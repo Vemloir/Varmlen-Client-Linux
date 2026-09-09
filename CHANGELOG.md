@@ -11,6 +11,14 @@
   state lived in the page component, so navigating re-created it and the card
   forgot mid-reading that he had asked to see them. It now lives in the store, and
   drops with the subscription.
+- Split: the filter and the add form no longer wear the same face. The Apps tab
+  field only narrows the list below it and creates nothing; the Websites tab field
+  holds a new entry waiting to be committed. They were a plate plus a button in both
+  cases, indistinguishable. Now a magnifier sits inside every filter (the Apps filter
+  and the picker's search) and a plus inside the field that creates an entry, and the
+  action beside a filter is a quiet outlined button while the action that commits is
+  the only filled button on the page.
+
 - One rounding family across the app: `--radius-sm` 8 -> 12, `--radius` 12 -> 18,
   `--radius-lg` 16 -> 24. Controls that are a fraction of a card now look like they
   were cut from the same sheet. The selector, the mode panel, the search field and
