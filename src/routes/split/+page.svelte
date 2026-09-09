@@ -103,17 +103,12 @@
   let showAddSite = $state(false);
   let siteSelected = $state<Set<string>>(new Set());
   let siteNotice = $state("");
-  // "Only this domain" is asked for on purpose; the plain form means the domain and
-  // everything under it, which is what almost everyone typing a name wants.
-  let siteExactOnly = $state(false);
-  const draftPattern = $derived(normalizeSitePattern(siteDraft));
-  const draftKind = $derived(siteRuleKind(draftPattern));
+
   const sitePresets = $derived(suggestSiteGroups(split.sites.map((s) => s.pattern)));
   function openAddSite(): void {
     siteSelected = new Set();
     siteDraft = "";
     siteNotice = "";
-    siteExactOnly = false;
     showAddSite = true;
   }
   function toggleSiteSelect(pattern: string): void {
@@ -123,14 +118,8 @@
     siteSelected = next;
   }
   function commitTypedSite(): void {
-    let pattern = normalizeSitePattern(siteDraft);
+    const pattern = normalizeSitePattern(siteDraft);
     if (!pattern) return;
-    const kind = siteRuleKind(pattern);
-    if (siteExactOnly && kind === "zone") {
-      siteNotice = t("split.siteExactNeedsHost");
-      return;
-    }
-    if (siteExactOnly && kind === "suffix") pattern = `=${pattern}`;
     if (!isSitePattern(pattern)) {
       // Not dropped silently: a stored pattern the router cannot match would sit in
       // the list looking like a rule while doing nothing.
@@ -434,21 +423,6 @@
         <input type="text" placeholder={t("split.sitePlaceholder")} bind:value={siteDraft} />
         <button class="btn btn-primary" type="submit" disabled={!siteDraft.trim()}>{t("import.add")}</button>
       </form>
-      <label class="opt-row">
-        <span class="opt-text">
-          <span class="opt-title">{t("split.siteExactOnly")}</span>
-          <span class="opt-hint muted">{t("split.siteExactOnlyHint")}</span>
-        </span>
-        <span class="switch">
-          <input
-            type="checkbox"
-            checked={siteExactOnly}
-            disabled={draftKind === "zone"}
-            onchange={(e) => (siteExactOnly = (e.currentTarget as HTMLInputElement).checked)}
-          />
-          <span class="slider"></span>
-        </span>
-      </label>
       <p class="muted notation">{t("split.siteNotationHint")}</p>
       {#if siteNotice}
         <p class="site-notice" role="status">{siteNotice}</p>
@@ -600,23 +574,6 @@
     letter-spacing: 0.08em;
   }
 
-  .opt-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .opt-text {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-  .opt-title {
-    font-size: 13px;
-  }
-  .opt-hint {
-    font-size: 11px;
-  }
   .notation {
     margin: 0;
     font-size: 12px;

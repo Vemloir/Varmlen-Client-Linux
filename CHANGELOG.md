@@ -32,6 +32,12 @@
   the router matches domains, and silently rewriting `example.com:8080` would hide the
   misunderstanding.
 
+- The "Only this domain" switch is gone from the websites picker. A control whose
+  effect can only be understood after learning the difference between a suffix and an
+  exact match is not a control, it is a quiz. The `=host` form still parses for the
+  person who types it and the list still labels such an entry "this host only", but
+  the interface no longer offers a choice nobody will decode.
+
 - Split, Websites tab: adding websites is the same full-width plate as in Apps, and
   it opens a picker instead of an inline field. You can type a pattern (`example.com`,
   `*.example.com`) or tick suggestions -- country blocks (`*.ru`, `*.by`, `*.kz`,

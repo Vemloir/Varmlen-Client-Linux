@@ -52,15 +52,15 @@ describe("split websites picker", () => {
     expect(split).toMatch(/\{#each group\.patterns as pattern \(pattern\)\}/);
   });
 
-  it("asks for an exact host instead of guessing one", () => {
-    const commit = split.slice(
-      split.indexOf("function commitTypedSite"),
-      split.indexOf("function confirmAddSites"),
-    );
-    // The plain form is the suffix rule; "=host" is only written when it was asked
-    // for, and a zone cannot be narrowed to one host at all.
-    expect(commit).toMatch(/if \(siteExactOnly && kind === "zone"\)/);
-    expect(commit).toMatch(/if \(siteExactOnly && kind === "suffix"\) pattern = `=\$\{pattern\}`;/);
+  it("offers no switch nobody will decode", () => {
+    const modal = split.slice(split.indexOf("{#if showAddSite}"), split.indexOf("<style>"));
+    // "Only this domain" as a control asks the user to understand suffix vs exact
+    // before he can use the field. The `=host` form still parses (see
+    // site-presets.test.ts), it is just not something the interface offers.
+    expect(modal).not.toMatch(/type="checkbox"/);
+    expect(modal).not.toMatch(/siteExactOnly/);
+    // And the field itself still says what a name and a leading dot cover.
+    expect(modal).toMatch(/\{t\("split\.siteNotationHint"\)\}/);
   });
 
   it("says in words what each listed entry means", () => {
@@ -88,9 +88,6 @@ describe("split websites picker", () => {
       '"split.presetServices"',
       '"split.siteInvalid"',
       '"split.noSitePresets"',
-      '"split.siteExactOnly"',
-      '"split.siteExactOnlyHint"',
-      '"split.siteExactNeedsHost"',
       '"split.siteKindSuffix"',
       '"split.siteKindZone"',
       '"split.siteKindExact"',
