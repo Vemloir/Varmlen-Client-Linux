@@ -57,8 +57,25 @@ describe("split websites: one field, one action", () => {
     expect(split).not.toMatch(/split\.addSite\(siteDraft\)/);
   });
 
-  it("still says in words what each listed entry means", () => {
-    expect(split).toMatch(/\{t\(siteKindLabelKey\(siteRuleKind\(s\.pattern\)\)\)\}/);
+  it("keeps the meaning of a pattern available without a caption under it", () => {
+    // "AND SUBDOMAINS" under every row is a caption the user does not have to read
+    // to use the list, so it is not printed; it is what the row is about.
+    expect(split).not.toMatch(/class="site-kind/);
+    expect(split).toMatch(
+      /<div class="list-row" title=\{t\(siteKindLabelKey\(siteRuleKind\(s\.pattern\)\)\)\}>/,
+    );
+  });
+
+  it("centres the window and cuts field, button and plate out of the card", () => {
+    const css = split.slice(split.indexOf("<style>"));
+    expect(css).toMatch(/\.modal-backdrop\s*\{[^}]*align-items:\s*center;/s);
+    expect(css).toMatch(/\.site-add input\s*\{[^}]*background:\s*var\(--bg\);[^}]*border:\s*none;/s);
+    expect(css).toMatch(/\.site-add \.btn\s*\{[^}]*background:\s*var\(--bg\);[^}]*border:\s*none;/s);
+    // The plate on the tab must stay above the page colour -- painted with the page
+    // colour it is invisible. Inside the card, the field and the button use it.
+    expect(css).toMatch(/\.panel-add\s*\{[^}]*background:\s*var\(--bg-elev\);[^}]*border:\s*none;/s);
+    // The filled accent plate is gone from this flow.
+    expect(modal).not.toMatch(/btn-primary/);
   });
 
   it("rewrites the old spelling of a pattern on load", () => {

@@ -1338,7 +1338,8 @@
     inset: 0;
     background: var(--overlay);
     display: flex;
-    align-items: flex-end;
+    /* Centred on the desktop client; see the split page for the reasoning. */
+    align-items: center;
     justify-content: center;
     z-index: 100;
     animation: fadeIn var(--transition);

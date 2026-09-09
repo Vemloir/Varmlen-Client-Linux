@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Split, websites: the add window is centred in the client window instead of sitting
+  on the bottom edge -- this is a desktop client, and a dialog that belongs to the
+  window belongs in the middle of it (the Android client keeps the sheet at the bottom,
+  where it rides the keyboard up). Its field and its button are painted with the
+  application background, so they read as cut out of the card; the full-width plate on
+  the tab keeps the one-step-lighter colour, because painted with the page colour it
+  simply disappears -- the first build of this change did exactly that.
+- A listed website no longer carries a caption under it. "AND SUBDOMAINS" under every
+  row explained a rule the user could already read; the meaning is now what the row
+  answers when asked (the tooltip), and the row is one line again.
+- Settings: the "Simultaneous pings" field is half as wide as the MTU field. Three
+  digits do not need the box that four digits need, and giving both the same width
+  made the small number look like a field that had lost half its value.
+- Two animations stopped re-laying-out the page every frame: the core download bar
+  scales instead of widening, and the app-scan bar shifts instead of pushing itself
+  with margins (that one ran forever while the list loaded). The client also honours
+  the system's "reduce motion" setting now.
 - Split, websites: adding a website is a window with one field again. The suggestions
   list, the tick-set, the "Add (N)" counter and the paragraph explaining the notation
   are all gone; the field placeholder ("example.com or .ru") carries the notation in

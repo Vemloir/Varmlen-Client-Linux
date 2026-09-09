@@ -302,11 +302,10 @@
     {:else}
       <div class="list">
         {#each split.sites as s (s.id)}
-          <div class="list-row">
-            <div class="site-text">
-              <span class="pattern">{s.pattern}</span>
-              <span class="site-kind dim">{t(siteKindLabelKey(siteRuleKind(s.pattern)))}</span>
-            </div>
+          <!-- The meaning of the pattern is not a caption: the row says what is
+               routed, and what the pattern covers is there for whoever asks. -->
+          <div class="list-row" title={t(siteKindLabelKey(siteRuleKind(s.pattern)))}>
+            <span class="pattern">{s.pattern}</span>
             <button class="btn-ghost trash" onclick={() => split.removeSite(s.id)} aria-label="Remove">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
             </button>
@@ -420,7 +419,7 @@
           spellcheck="false"
           bind:value={siteDraft}
         />
-        <button class="btn btn-primary" type="submit" disabled={!siteDraft.trim()}>{t("import.add")}</button>
+        <button class="btn" type="submit" disabled={!siteDraft.trim()}>{t("import.add")}</button>
       </form>
       {#if siteNotice}
         <p class="site-notice" role="status">{siteNotice}</p>
@@ -531,21 +530,16 @@
      would be the loudest thing on a tab whose content is the list. */
   .panel-add {
     width: 100%;
+    /* One step above the page (--bg here would be the page itself, and the button
+       would vanish). The app-background colour is used inside the card, where it
+       reads as a cut-out; out here the plate has to be lighter than what it sits on. */
+    background: var(--bg-elev);
     border: none;
   }
+  .panel-add:hover:not(:disabled) {
+    background: var(--bg-elev-2);
+  }
 
-  .site-text {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-  .site-kind {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
 
   .site-notice {
     margin: -2px 0 0;
@@ -598,7 +592,20 @@
     display: flex;
     gap: 8px;
   }
-  .site-add input { flex: 1; }
+  .site-add input {
+    flex: 1;
+    /* The application background, no outline: the card is the plate, the field and
+       the button are cut out of it. */
+    background: var(--bg);
+    border: none;
+  }
+  .site-add .btn {
+    background: var(--bg);
+    border: none;
+  }
+  .site-add .btn:hover:not(:disabled) {
+    background: var(--bg-elev-2);
+  }
 
   .pattern {
     flex: 1;
@@ -622,7 +629,10 @@
     inset: 0;
     background: var(--overlay);
     display: flex;
-    align-items: flex-end;
+    /* Centred: this is a desktop client, and a dialog that belongs to the window
+       belongs in the middle of it. (The Android client keeps the sheet at the
+       bottom edge, where it rides the keyboard up.) */
+    align-items: center;
     justify-content: center;
     z-index: 100;
     animation: fadeIn var(--transition);
@@ -680,9 +690,11 @@
     background: var(--accent);
     animation: scan 1.1s ease-in-out infinite;
   }
+  /* Shifted, not margined: this animation runs forever while the list loads, and
+     margin-left re-lays-out the modal on every frame. */
   @keyframes scan {
-    0% { margin-left: -40%; }
-    100% { margin-left: 100%; }
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(250%); }
   }
   .picker {
     /* Fixed height: the modal keeps its size as the search narrows results,
