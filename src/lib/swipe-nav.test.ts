@@ -32,9 +32,34 @@ describe("the neighbour under the finger", () => {
   });
 
   it("shows a wall, not a neighbour, past the end of the strip", () => {
+    expect(source).toMatch(/neighbour === null \? wallOffset\(dx, WALL_LIMIT_PX\)/);
+  });
+
+  it("never drags further than the one tab a release can deliver", () => {
+    expect(source).toMatch(/dragOffset\(dx, span, WALL_LIMIT_PX\)/);
+    expect(source).toMatch(/const span = track\(\)\?\.clientWidth \?\? 0;/);
+  });
+
+  it("picks the page up instead of snapping it", () => {
+    expect(source).toMatch(/const START_MS = 120;/);
     expect(source).toMatch(
-      /offset = neighbour === null \? wallOffset\(dx, WALL_LIMIT_PX\) : dx;/,
+      /move\(offset, performance\.now\(\) - startedAt < START_MS \? "start" : "none"\);/,
     );
+  });
+
+  it("takes the gesture away from the control it started on", () => {
+    // The location list is a wall of buttons: refusing those gestures makes the
+    // first tab unsweipeable. The row is released instead -- its long press cannot
+    // see the movement once the page holds the pointer capture, and the click that
+    // follows a swipe must not choose a location.
+    expect(source).toMatch(/element\.dispatchEvent\(new PointerEvent\("pointercancel", \{ bubbles: true \}\)\);/);
+    expect(source).toMatch(/document\.addEventListener\("click", swallow, \{ capture: true \}\);/);
+    // Only the control that was let go loses its click -- a tap elsewhere a moment
+    // later is a tap.
+    expect(source).toMatch(/if \(!node \|\| !element\.contains\(node\)\) return;/);
+    expect(source).toMatch(/setTimeout\(\(\) => document\.removeEventListener\("click", swallow, true\), 800\);/);
+    expect(source).toMatch(/releaseControl\(\);/);
+    expect(source).toMatch(/const CONTROL = "button, a";/);
   });
 
   it("changes the route only after the page has landed on the neighbour", () => {

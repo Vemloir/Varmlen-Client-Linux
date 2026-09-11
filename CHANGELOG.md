@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- The swipe works where the app actually is. A gesture that started on a control was
+  refused outright, and the home page is a wall of location rows, so the first tab
+  could not be swiped at all until some other tab was reached by hand. A row is the
+  gesture's owner only until the finger goes sideways: then the page takes it, tells
+  the row out loud that the press is over -- it cannot notice by itself, because once
+  the page holds the pointer capture the row stops seeing movement, and its long press
+  would open a menu in mid-swipe -- and the click that follows is swallowed for that
+  row only, never for a tap elsewhere. Fields, editable text and open windows still
+  keep their gestures.
+- One gesture, one tab. A long drag used to pull two pages of tab past the finger and
+  then deliver one, which is a promise the release does not keep. Past one page width
+  the drag leans against the same hyperbolic wall as the end of the strip.
+- The page is picked up rather than snapped. For the first 120ms of a drag it follows
+  the finger with a short lag, so the gesture does not begin with a ten-pixel jump
+  that looks like the interface deciding for you.
 - The tab bar is a narrow pill floating above the bottom edge, with 2px of the page
   showing through between the tabs, instead of a panel welded to the edge.
 - Tabs switch by dragging sideways, and the page rides with the pointer while the

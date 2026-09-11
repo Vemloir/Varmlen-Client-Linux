@@ -34,11 +34,13 @@ describe("shell: tabs by swipe, with the new page arriving from the side", () =>
 
   it("does not take a gesture that starts on a control or an open window", () => {
     const action = read("../lib/swipe-nav.ts");
-    // A location row is a button, so a long press there cannot turn into a tab
-    // change underneath the menu it just opened.
-    expect(action).toMatch(/button, a, input, textarea, select/);
-    // And a swipe over an open modal must not carry the draft away with it.
-    expect(action).toMatch(/\.modal-backdrop, \.loc-menu/);
+    // Fields keep their gestures, and a swipe over an open modal must not carry
+    // the half-typed draft away with it.
+    expect(action).toMatch(/const REFUSED =/);
+    expect(action).toMatch(/input, textarea, select, \[contenteditable\], \[data-no-swipe\], \.modal-backdrop, \.loc-menu/);
+    // A row is a button, but only until the finger goes sideways: the home page is
+    // nothing but rows, and refusing those gestures makes it unsweipeable.
+    expect(action).toMatch(/const CONTROL = "button, a";/);
   });
 
   it("wraps the page in the one element that can move", () => {

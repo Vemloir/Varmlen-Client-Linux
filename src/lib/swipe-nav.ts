@@ -1,5 +1,6 @@
 import { NAV } from "$lib/nav";
 import {
+  dragOffset,
   neighbourPath,
   swipeDirection,
   wallOffset,
@@ -16,12 +17,16 @@ import {
  * into a page change underneath the menu it just opened.
  */
 
-const CONTROLS =
-  'button, a, input, textarea, select, [contenteditable], [data-no-swipe]';
+/* Anything that takes text, and any window that is already open: a swipe over a
+   half-typed form would change the tab and take the draft with it. */
+const REFUSED =
+  'input, textarea, select, [contenteditable], [data-no-swipe], .modal-backdrop, .loc-menu';
 
-/* A window that is open is not a page to swipe away from: the gesture would
-   change the tab and take the half-typed draft with it. */
-const OVERLAYS = ".modal-backdrop, .loc-menu";
+/* A control owns the gesture only until the finger says otherwise. The location
+   list is a wall of buttons, so refusing a gesture that starts on one makes the
+   first tab unsweipeable -- the page is nothing but rows. What the row actually
+   wants is a tap or a long press, and neither of those is sideways. */
+const CONTROL = "button, a";
 
 /** Sideways travel before we commit to "this is a swipe" and start dragging. */
 const DRAG_START_PX = 10;
@@ -30,6 +35,11 @@ const DRAG_START_PX = 10;
 const WALL_LIMIT_PX = 96;
 /** The way back when the drag did not reach the threshold. */
 const SETTLE = "transform 160ms cubic-bezier(0.2, 0, 0, 1)";
+/** For the first moments of a drag the page follows the finger with a short lag
+ *  instead of snapping to it: a gesture that starts with a jump of ten pixels
+ *  reads as the interface deciding, not as the page being picked up. */
+const START_MS = 120;
+const START = `transform ${START_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
 /** How long the released page takes to land on the neighbour it was dragged to. */
 const COMMIT_MS = 180;
 const COMMIT = `transform ${COMMIT_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
@@ -61,6 +71,9 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
   let offset = 0;
   let previewTo: string | null = null;
   let committing = false;
+  let startedAt = 0;
+  /** The control the finger landed on, if any, until the gesture takes it away. */
+  let control: HTMLElement | null = null;
 
   const track = () => options.track?.() ?? null;
 
@@ -71,11 +84,37 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     options.preview?.(to);
   };
 
-  const move = (dx: number, withTransition: boolean) => {
+  const move = (dx: number, transition: "settle" | "start" | "none" = "none") => {
     const element = track();
     if (!element) return;
-    element.style.transition = withTransition ? SETTLE : "none";
+    element.style.transition =
+      transition === "settle" ? SETTLE : transition === "start" ? START : "none";
     element.style.transform = dx === 0 ? "" : `translateX(${dx}px)`;
+  };
+
+  /**
+   * The gesture belongs to the page now, so the control under the finger has to
+   * be let go. It cannot be left to notice on its own: once this element holds
+   * the pointer capture the row stops receiving pointermove, and its long press
+   * would fire a menu in the middle of the swipe. So it is told out loud, and the
+   * click the browser delivers afterwards never reaches it -- a swipe is not a way
+   * of choosing a location.
+   */
+  const releaseControl = () => {
+    const element = control;
+    control = null;
+    if (!element) return;
+    element.dispatchEvent(new PointerEvent("pointercancel", { bubbles: true }));
+    // Scoped to the control that was let go: a tap somewhere else, a moment
+    // later, is a tap and not a leftover of this gesture.
+    const swallow = (event: MouseEvent) => {
+      const node = event.target as Node | null;
+      if (!node || !element.contains(node)) return;
+      event.stopPropagation();
+      event.preventDefault();
+    };
+    document.addEventListener("click", swallow, { capture: true });
+    setTimeout(() => document.removeEventListener("click", swallow, true), 800);
   };
 
   const release = () => {
@@ -95,6 +134,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     committing = true;
     const element = track();
     const width = element?.clientWidth ?? 0;
+    control = null;
     if (element && width > 0) {
       element.style.transition = COMMIT;
       element.style.transform = `translateX(${direction === "next" ? -width : width}px)`;
@@ -114,7 +154,8 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     release();
     if (event.button !== 0 || committing) return;
     const target = event.target as HTMLElement | null;
-    if (target?.closest(`${CONTROLS}, ${OVERLAYS}`)) return;
+    if (target?.closest(REFUSED)) return;
+    control = target?.closest(CONTROL) ?? null;
     startX = event.clientX;
     startY = event.clientY;
     startAt = performance.now();
@@ -131,14 +172,19 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       // stealing it would make the app unreadable by touch.
       if (Math.abs(dx) < DRAG_START_PX || Math.abs(dx) < 2 * Math.abs(dy)) return;
       dragging = true;
+      startedAt = performance.now();
       node.setPointerCapture?.(event.pointerId);
+      releaseControl();
     }
     const direction: SwipeDirection = dx < 0 ? "next" : "prev";
     const neighbour = neighbourPath(options.path(), direction, order);
     // At the end of the strip there is no neighbour to show, only a wall.
     showPreview(neighbour);
-    offset = neighbour === null ? wallOffset(dx, WALL_LIMIT_PX) : dx;
-    move(offset, false);
+    const span = track()?.clientWidth ?? 0;
+    offset =
+      neighbour === null ? wallOffset(dx, WALL_LIMIT_PX) : dragOffset(dx, span, WALL_LIMIT_PX);
+    // One page of lag at the start, then the page tracks the finger exactly.
+    move(offset, performance.now() - startedAt < START_MS ? "start" : "none");
   };
 
   const onUp = (event: PointerEvent) => {
@@ -154,14 +200,15 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     }
     showPreview(null);
     offset = 0;
-    if (wasDragging) move(0, true);
+    if (wasDragging) move(0, "settle");
   };
 
   const onCancel = () => {
     if (pointerId === null) return;
     release();
+    control = null;
     showPreview(null);
-    move(0, true);
+    move(0, "settle");
   };
 
   // A drag over a picture would otherwise start the browser's own image drag and

@@ -77,3 +77,20 @@ export function slideDirection(
   if (a === -1 || b === -1 || a === b) return null;
   return b > a ? "next" : "prev";
 }
+
+/**
+ * How far the page may move during one gesture: one page, and then the same
+ * hyperbolic wall as at the end of the strip.
+ *
+ * Without the cap a long drag pulls two pages of tab past the finger, which
+ * promises a jump the release never delivers -- a swipe always moves exactly one
+ * tab. Past one page width every extra pixel of finger buys proportionally less
+ * page, so the limit is leaned against rather than hit.
+ */
+export function dragOffset(raw: number, span: number, wallLimit: number): number {
+  if (span <= 0) return raw;
+  const sign = raw < 0 ? -1 : 1;
+  const magnitude = Math.abs(raw);
+  if (magnitude <= span) return raw;
+  return sign * (span + wallOffset(magnitude - span, wallLimit));
+}
