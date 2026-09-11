@@ -53,12 +53,9 @@ describe("home: session pill under the power button", () => {
     expect(css.slice(css.indexOf(".session-sep"))).toMatch(/^\.session-sep\s*\{(?![^}]*height:)/s);
   });
 
-  it("paints no plate at all, and keeps its lines the lighter colour", () => {
-    // Requested: the numbers and the lines between them are the control. A plate
-    // of the page colour would be invisible, so the separator has to be the
-    // lighter one -- the same flip the apps list needed for the same reason.
-    expect(css).toMatch(/\.session-pill\s*\{[^}]*background:\s*var\(--bg\);/s);
-    expect(css).toMatch(/\.session-sep\s*\{[^}]*background:\s*var\(--bg-elev\);/s);
+  it("is the same idiom as the tab bar: raised plate, page showing through", () => {
+    expect(css).toMatch(/\.session-pill\s*\{[^}]*background:\s*var\(--bg-elev\);/s);
+    expect(css).toMatch(/\.session-sep\s*\{[^}]*width:\s*2px;[^}]*background:\s*var\(--bg\);/s);
   });
 
   it("has every duration unit in both languages", () => {

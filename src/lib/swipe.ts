@@ -46,6 +46,23 @@ export function neighbourPath(
 }
 
 /**
+ * How far the page actually moves when the finger pulls past the first or the
+ * last tab.
+ *
+ * At the wall the page follows the finger one to one, and every extra pixel of
+ * finger buys proportionally less page: the pull slows down on its own and
+ * approaches `limit` without ever reaching it. A fixed fraction with a hard cap
+ * -- what this replaces -- stops dead at a number, which feels like hitting a bug
+ * rather than the end of the app. The distance is in pixels of finger travel,
+ * because that is the only thing the gesture knows.
+ */
+export function wallOffset(raw: number, limit: number): number {
+  const distance = Math.abs(raw);
+  const eased = (limit * distance) / (limit + distance);
+  return raw < 0 ? -eased : eased;
+}
+
+/**
  * Which way a route change should slide. Positive means the new page comes from
  * the right, which is where it is when you swipe left. Returns null when either
  * route is unknown (a modal, a deep link) -- no direction, no animation.

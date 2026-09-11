@@ -503,7 +503,7 @@
     {/if}
   </section>
 
-  <main class="scroll fade-y" use:persistScroll={page.url.pathname}>
+  <main class="scroll" use:persistScroll={page.url.pathname}>
 
   {#each subs.ordered as sub (sub.id)}
     {@const isManual = subs.isManualCard(sub)}
@@ -1015,7 +1015,7 @@
        which is the asymmetric look we want to avoid. */
     overflow-y: scroll;
     overflow-x: hidden;
-    padding: 8px 14px 24px 20px;
+    padding: 8px 14px calc(24px + var(--nav-clearance)) 20px;
   }
 
   /* ---------- power hero (fixed, above the scroll) ---------- */
@@ -1084,10 +1084,9 @@
     align-items: stretch;
     margin-top: 10px;
     border-radius: 999px;
-    /* The application background: on the page it paints no plate at all, which
-       is the point -- the three numbers and the lines between them are the
-       control, not a box carrying them. */
-    background: var(--bg);
+    /* The same idiom as the tab bar: a raised plate with the page showing through
+       the partitions. */
+    background: var(--bg-elev);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
     color: var(--text);
@@ -1103,11 +1102,10 @@
     white-space: nowrap;
   }
   /* Full height of the plate: a 12px stub floating in the middle reads as a
-     decoration rather than as the line between two numbers. The plate is the page
-     colour now, so the line has to be the lighter one to be seen at all. */
+     decoration rather than as the line between two numbers. */
   .session-sep {
-    width: 1px;
-    background: var(--bg-elev);
+    width: 2px;
+    background: var(--bg);
   }
   .status-text[data-status="connected"] { color: var(--accent); }
   .status-text[data-status="connecting"] { color: var(--accent); }

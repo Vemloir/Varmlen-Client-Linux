@@ -1,5 +1,10 @@
 import { NAV } from "$lib/nav";
-import { neighbourPath, swipeDirection, type SwipeDirection } from "$lib/swipe";
+import {
+  neighbourPath,
+  swipeDirection,
+  wallOffset,
+  type SwipeDirection,
+} from "$lib/swipe";
 
 /**
  * The pointer side of tab swiping. The decision itself lives in `swipe.ts`; this
@@ -20,11 +25,9 @@ const OVERLAYS = ".modal-backdrop, .loc-menu";
 
 /** Sideways travel before we commit to "this is a swipe" and start dragging. */
 const DRAG_START_PX = 10;
-/** How much of the finger the page follows past the first / last tab. */
-const WALL_RESIST = 0.35;
-/** And the most it will ever show there, so a hard pull stops rather than
- *  flying: the wall is meant to feel like the end of the app, not a bug. */
-const WALL_MAX_PX = 64;
+/** How far the page will ever slide at the end of the list, approached but not
+ *  reached: see wallOffset(). */
+const WALL_LIMIT_PX = 96;
 /** The way back when the drag did not reach the threshold. */
 const SETTLE = "transform 160ms cubic-bezier(0.2, 0, 0, 1)";
 
@@ -87,7 +90,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     }
     const direction: SwipeDirection = dx < 0 ? "next" : "prev";
     const blocked = neighbourPath(options.path(), direction, order) === null;
-    offset = blocked ? Math.max(-WALL_MAX_PX, Math.min(WALL_MAX_PX, dx * WALL_RESIST)) : dx;
+    offset = blocked ? wallOffset(dx, WALL_LIMIT_PX) : dx;
     move(offset, false);
   };
 

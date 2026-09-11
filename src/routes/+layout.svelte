@@ -210,6 +210,11 @@
     <div bind:this={shellEl} class="page-shell" class:from-right={slide === "next"} class:from-left={slide === "prev"}>
       {@render children?.()}
     </div>
+    <!-- Over the pages, under the pill (5) and under every modal (100). The fade
+         is a layer rather than a mask on the scroll container: a mask makes that
+         container a stacking context, and every modal inside it then paints under
+         the tab pill -- dimmed page, bright pill. -->
+    <div class="edge-fade edge-fade--bottom" aria-hidden="true"></div>
   </main>
 
   <nav class="tabbar">
@@ -235,26 +240,39 @@
   .app {
     position: fixed;
     inset: 0;
-    display: flex;
-    flex-direction: column;
     background: var(--bg);
   }
 
+  /* The pages run to the bottom edge of the window and the pill floats over
+     them. A panel taking a row of its own in this flex column cut every list on
+     a hard line above itself, and painted the pill over any open modal. */
   .content {
-    flex: 1;
-    min-height: 0;
-    position: relative;
+    position: absolute;
+    inset: 0;
     overflow: hidden;
   }
 
   /* Every page is absolutely positioned inside this, so it is the one thing that
      can move for a tab change without asking the pages to cooperate. */
+  .edge-fade {
+    position: absolute;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .edge-fade--bottom {
+    bottom: 0;
+    height: var(--fade-bottom);
+    background: linear-gradient(to top, var(--bg), transparent);
+  }
+
   .page-shell {
     position: absolute;
     inset: 0;
-    /* The page rides with the pointer, so it gets its own layer: without it
-       every pixel of the drag repaints the whole scrolled page. */
-    will-change: transform;
+    /* No will-change here on purpose. It would give this element its own layer
+       and therefore its own stacking context, and every modal rendered inside a
+       page would then sit under the tab pill -- dimmed page, bright pill. */
   }
   /* Transform and opacity only, and the arriving page rather than a crossfade:
      the outgoing page is already gone by the time the new one is rendered, and
@@ -276,34 +294,42 @@
     padding: 9px 4px;
   }
 
-  /* A pill floating above the bottom edge instead of a panel welded to it. The
-     line between two tabs is 2px of the page showing through, the same idiom as
-     the session pill under the power button. */
   .tabbar {
+    position: absolute;
+    left: 50%;
+    bottom: max(var(--nav-inset), env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    /* Under every modal (they are at 100), over the pages. */
+    z-index: 5;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    align-self: center;
+    /* The partitions are gaps rather than drawn lines: they run the full height
+       of the pill by construction, and what scrolls behind them stays visible. */
+    gap: 2px;
     width: min(300px, calc(100% - 48px));
-    margin-bottom: max(10px, env(safe-area-inset-bottom));
-    border-radius: 999px;
-    background: var(--bg-elev);
-    padding: 4px;
-    flex-shrink: 0;
-  }
-  .tab + .tab {
-    border-left: 2px solid var(--bg);
+    height: var(--nav-height);
   }
   .tab {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 2px;
     padding: 6px 4px;
     color: var(--text-muted);
     font-size: 11px;
     font-weight: 500;
     transition: color var(--transition);
-    border-radius: var(--radius-sm);
+    /* Solid, one tone below the cards. The pill itself is opaque -- only the
+       partitions are open, and what scrolls behind those 2px stays visible. */
+    background: var(--nav-bg);
+  }
+  /* The pill keeps one stadium silhouette: only the outer corners round off. */
+  .tab:first-child {
+    border-radius: 999px 0 0 999px;
+  }
+  .tab:last-child {
+    border-radius: 0 999px 999px 0;
   }
   .tab:hover { color: var(--text); }
   .tab.active { color: var(--accent); }

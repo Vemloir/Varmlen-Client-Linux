@@ -21,6 +21,13 @@
   --accent-hover: #ffffff;
   --accent-faint: rgba(255, 255, 255, 0.12);
   --accent-on: #0d0d0d;
+  /* The tab pill's own plate: one tone below the page itself, so it reads as a
+     plate sunk into the page. One tone below the cards would be the page colour
+     exactly, and the pill would vanish into what it floats over. */
+  /* The tab pill's plate: the panel colour -- the one every card and the session
+     pill wear -- darkened. Derived rather than a literal, so it stays a darkened
+     panel in the light theme too. */
+  --nav-bg: color-mix(in srgb, var(--bg-elev) 93%, #000000);
 }
 
 [data-theme="light"] {
@@ -40,6 +47,7 @@
   --accent-hover: #000000;
   --accent-faint: rgba(0, 0, 0, 0.08);
   --accent-on: #ffffff;
+
 }
 
 :root {
@@ -47,6 +55,15 @@
   --danger-faint: rgba(229, 72, 77, 0.14);
   --danger-faint-2: rgba(229, 72, 77, 0.26);
   --warn: #f5a524;
+
+  /* The tab pill floats over the pages instead of taking a row of its own, so
+     every scrolling page has to keep this much room at the bottom -- otherwise
+     the last row hides under it for good. */
+  --fade-top: 10px;
+  --fade-bottom: 56px;
+  --nav-height: 48px;
+  --nav-inset: 10px;
+  --nav-clearance: calc(var(--nav-height) + var(--nav-inset) + 16px);
 
   /* One rounding family, scaled up: a control that is a third of a card should
      look like it belongs to the same object, not like a different shape. */
@@ -390,22 +407,11 @@ input[type="search"]::-webkit-search-cancel-button {
   background: var(--bg-elev-2);
 }
 
-/* ---------- soft fade at the top/bottom of scroll panels ----------
-   Replaces the hard clip where content meets the top bar / tab bar with a
-   gentle fade. Apply alongside a scroll container (.scroll / .page). */
-.fade-y {
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 10px,
-    #000 calc(100% - 10px),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 10px,
-    #000 calc(100% - 10px),
-    transparent 100%
-  );
-}
+/* ---------- soft fade at the bottom edge of the window ----------
+   The bands are laid over the pages by the shell, not as a mask on the scroll
+   container: a mask makes that container a stacking context, and every modal
+   rendered inside it then paints under the tab pill -- dimmed page, bright pill.
+
+   The bottom band is deliberately wide: a subscription list ending in a clean
+   cut a few pixels above the tab pill looks like a rendering bug, and it is the
+   edge the eye is always at while scrolling. */

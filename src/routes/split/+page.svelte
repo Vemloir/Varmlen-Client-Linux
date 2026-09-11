@@ -221,7 +221,7 @@
   <h1>{t("split.title")}</h1>
 </header>
 
-<div class="page fade-y" use:persistScroll={page.url.pathname}>
+<div class="page" use:persistScroll={page.url.pathname}>
 
   <div class="segmented" role="tablist" bind:this={segEl}>
     <span class="seg-thumb" style={thumbStyle} aria-hidden="true"></span>
@@ -449,8 +449,8 @@
     /* See +page.svelte for the rationale on always-on scrollbar + mirrored
        padding instead of `scrollbar-gutter: stable both-edges`. */
     overflow-y: scroll;
-    /* Top padding clears the fade-y mask so the tabs aren't dimmed at rest. */
-    padding: 12px 14px 24px 20px;
+    /* A little air above the first row; the shell fades the bottom edge, not us. */
+    padding: 12px 14px calc(24px + var(--nav-clearance)) 20px;
     display: flex;
     flex-direction: column;
     gap: 12px;

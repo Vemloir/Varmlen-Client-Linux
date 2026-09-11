@@ -253,7 +253,7 @@
   <h1>{t("settings.title")}</h1>
 </header>
 
-<main class="scroll fade-y" use:persistScroll={page.url.pathname}>
+<main class="scroll" use:persistScroll={page.url.pathname}>
   <section>
     <h2>{t("settings.appearance")}</h2>
     <div class="list">
@@ -849,9 +849,9 @@
        visible gap from the app edge to the panel edge is identical on
        both sides. */
     overflow-y: scroll;
-    /* Top padding clears the fade-y mask so the first section label isn't
+    /* Top padding keeps the first section label off
        dimmed at rest. */
-    padding: 12px 14px 24px 20px;
+    padding: 12px 14px calc(24px + var(--nav-clearance)) 20px;
     display: flex;
     flex-direction: column;
     gap: 16px;

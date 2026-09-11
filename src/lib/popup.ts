@@ -1,5 +1,5 @@
 /** Move a node to document.body for its lifetime. A `position: fixed` popup
- *  inside a transformed/masked/filtered ancestor (e.g. our `.fade-y` scroll
+ *  inside a transformed/masked/filtered ancestor (e.g. our scroll
  *  panels) would otherwise be positioned relative to that ancestor, not the
  *  viewport — pinning it to the wrong edge. Portalling to body avoids that. */
 export function portal(node: HTMLElement) {

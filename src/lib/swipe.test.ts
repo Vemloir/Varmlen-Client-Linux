@@ -7,6 +7,7 @@ import {
   neighbourPath,
   slideDirection,
   swipeDirection,
+  wallOffset,
 } from "./swipe";
 
 const TABS = ["/", "/split", "/settings"] as const;
@@ -50,6 +51,27 @@ describe("swipe between tabs", () => {
     expect(neighbourPath("/", "prev", TABS)).toBe(null);
     expect(neighbourPath("/settings", "next", TABS)).toBe(null);
     expect(neighbourPath("/somewhere/else", "next", TABS)).toBe(null);
+  });
+
+  it("slows down into the wall instead of stopping at a number", () => {
+    const LIMIT = 96;
+    expect(wallOffset(0, LIMIT)).toBe(0);
+    // At the wall the page follows the finger.
+    expect(wallOffset(6, LIMIT) / 6).toBeGreaterThan(0.93);
+    // Every extra pixel of finger buys less page than the one before it: the
+    // increments between equal stretches of finger keep falling.
+    const marks = [0, 6, 12, 24, 48, 96, 192, 4000];
+    const rates = marks.slice(1).map((x, i) => ({ dx: x - marks[i], x, from: marks[i] }))
+      .map(({ dx, x, from }) => (wallOffset(x, LIMIT) - wallOffset(from, LIMIT)) / dx);
+    rates.forEach((rate, i) => {
+      expect(rate).toBeGreaterThan(0);
+      if (i > 0) expect(rate).toBeLessThan(rates[i - 1]);
+    });
+    // It approaches the limit and never arrives, so there is no stop to feel.
+    expect(wallOffset(4000, LIMIT)).toBeLessThan(LIMIT);
+    expect(wallOffset(4000, LIMIT)).toBeGreaterThan(LIMIT * 0.97);
+    // Both ends behave the same way.
+    expect(wallOffset(-96, LIMIT)).toBe(-wallOffset(96, LIMIT));
   });
 
   it("says which way a route change arrives, and stays silent about unknown routes", () => {
