@@ -151,8 +151,10 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
   };
 
   const onDown = (event: PointerEvent) => {
-    release();
-    if (event.button !== 0 || committing) return;
+    if (committing) return;
+    // A second finger does not replace the one that is already dragging.
+    if (pointerId !== null) return;
+    if (event.button !== 0) return;
     const target = event.target as HTMLElement | null;
     if (target?.closest(REFUSED)) return;
     control = target?.closest(CONTROL) ?? null;
@@ -164,7 +166,10 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
   };
 
   const onMove = (event: PointerEvent) => {
-    if (pointerId === null) return;
+    // Only the pointer that started this gesture. A mouse moving while a finger is
+    // down, or a second finger, would otherwise move the page from a start point it
+    // never touched.
+    if (pointerId === null || event.pointerId !== pointerId) return;
     const dx = event.clientX - startX;
     const dy = event.clientY - startY;
     if (!dragging) {
@@ -173,7 +178,12 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       if (Math.abs(dx) < DRAG_START_PX || Math.abs(dx) < 2 * Math.abs(dy)) return;
       dragging = true;
       startedAt = performance.now();
-      node.setPointerCapture?.(event.pointerId);
+      try {
+        node.setPointerCapture?.(event.pointerId);
+      } catch {
+        // A pointer that is already gone cannot be captured. The gesture is still
+        // worth tracking from the events that do arrive.
+      }
       releaseControl();
     }
     const direction: SwipeDirection = dx < 0 ? "next" : "prev";
@@ -188,7 +198,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
   };
 
   const onUp = (event: PointerEvent) => {
-    if (pointerId === null) return;
+    if (pointerId === null || event.pointerId !== pointerId) return;
     const wasDragging = dragging;
     release();
     const dx = event.clientX - startX;

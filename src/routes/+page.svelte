@@ -1,7 +1,7 @@
 <script lang="ts">
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { conn } from "$lib/conn.svelte";
-  import { page } from "$app/state";
+  import { navPath } from "$lib/nav-path";
   import { persistScroll } from "$lib/scroll-memory";
   import { subs } from "$lib/subs.svelte";
   import { t } from "$lib/i18n.svelte";
@@ -509,7 +509,7 @@
     {/if}
   </section>
 
-  <main class="scroll" use:persistScroll={preview || page.url.pathname}>
+  <main class="scroll" use:persistScroll={preview || navPath()}>
 
   {#each subs.ordered as sub (sub.id)}
     {@const isManual = subs.isManualCard(sub)}

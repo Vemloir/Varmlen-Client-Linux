@@ -76,7 +76,14 @@ describe("the neighbour under the finger", () => {
   });
 
   it("ignores a second gesture while the page is landing", () => {
-    expect(source).toMatch(/if \(event\.button !== 0 \|\| committing\) return;/);
+    expect(source).toMatch(/if \(committing\) return;/);
+  });
+
+  it("follows one pointer, not every pointer in the room", () => {
+    // Measured in the installed build: a mouse moving next to a finger in progress
+    // rewrote the start point and the page jittered between two offsets.
+    expect(source).toMatch(/if \(pointerId !== null\) return;/);
+    expect(source.match(/event\.pointerId !== pointerId/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
   it("keeps the neighbour out of reach and out of the accessibility tree", () => {
@@ -97,7 +104,7 @@ describe("the neighbour under the finger", () => {
 
   it("keeps the neighbour's own reading position, not the current tab's", () => {
     for (const page of [home, split, settings]) {
-      expect(page).toMatch(/use:persistScroll=\{preview \|\| page\.url\.pathname\}/);
+      expect(page).toMatch(/use:persistScroll=\{preview \|\| navPath\(\)\}/);
     }
   });
 

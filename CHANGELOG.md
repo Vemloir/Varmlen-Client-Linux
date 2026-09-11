@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- The first tab is swipeable again, and it was never about the rows. Tauri serves the
+  bundle from `tauri://localhost` -- no trailing slash -- and WebKitGTK reports that
+  origin with an empty pathname, so before the first navigation the app was standing on
+  a path no tab is named after: no tab was marked current, and a swipe found neither a
+  neighbour nor a wall and did nothing at all. `navPath()` maps that empty path to `/`
+  and everything -- the tab strip, the swipe, the scroll memory -- reads the path
+  through it. Measured inside the installed build, not reasoned about: the gesture
+  handler logged `path=` with nothing after the equals sign, and after the fix the same
+  log shows a first gesture on a location row travelling to `/split` without any manual
+  navigation first.
+- A gesture follows one pointer. A mouse moving beside a finger in progress rewrote the
+  start point, and the page jumped between two offsets; a second finger no longer
+  replaces the one that is dragging. Capturing a pointer that is already gone no longer
+  throws the gesture away.
 - The swipe works where the app actually is. A gesture that started on a control was
   refused outright, and the home page is a wall of location rows, so the first tab
   could not be swiped at all until some other tab was reached by hand. A row is the

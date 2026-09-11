@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from "$app/state";
+  import { navPath } from "$lib/nav-path";
   import { persistScroll } from "$lib/scroll-memory";
   import { theme } from "$lib/theme.svelte";
   import { MTU_MAX, MTU_MIN } from "$lib/mtu";
@@ -263,7 +263,7 @@
   <h1>{t("settings.title")}</h1>
 </header>
 
-<main class="scroll" use:persistScroll={preview || page.url.pathname}>
+<main class="scroll" use:persistScroll={preview || navPath()}>
   <section>
     <h2>{t("settings.appearance")}</h2>
     <div class="list">

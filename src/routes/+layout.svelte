@@ -4,6 +4,7 @@
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { NAV } from "$lib/nav";
+  import { navPath } from "$lib/nav-path";
   import { swipeNav } from "$lib/swipe-nav";
   import { slideDirection } from "$lib/swipe";
   import { t } from "$lib/i18n.svelte";
@@ -81,10 +82,10 @@
 
   let { children } = $props();
 
-  // Reading `page.url.pathname` through a $derived ensures the active-tab
-  // class re-evaluates reliably on every navigation (intermittent stale state
-  // otherwise).
-  const currentPath = $derived(page.url.pathname);
+  // Read through a $derived so the active-tab class re-evaluates reliably on every
+  // navigation (intermittent stale state otherwise), and through `navPath` because
+  // the origin Tauri serves the bundle from has no path at all.
+  const currentPath = $derived(navPath());
   const TAB_PATHS = NAV.map((item) => item.path);
 
   // Which way a new page arrives. Recorded while the path changes and cleared
@@ -109,7 +110,7 @@
     }
     const rank = (path: string) =>
       TAB_PATHS.findIndex((tab) => (tab === "/" ? path === "/" : path.startsWith(tab)));
-    preview = { path: to, side: rank(to) >= rank(page.url.pathname) ? "next" : "prev" };
+    preview = { path: to, side: rank(to) >= rank(navPath()) ? "next" : "prev" };
   }
 
   async function goTo(to: string): Promise<void> {
@@ -119,7 +120,7 @@
   }
 
   $effect(() => {
-    const path = page.url.pathname;
+    const path = navPath();
     const direction = slideDirection(previousPath, path, TAB_PATHS);
     previousPath = path;
     if (draggedIn === path) {
@@ -236,7 +237,7 @@
   <main
     class="content"
     use:swipeNav={{
-      path: () => page.url.pathname,
+      path: () => navPath(),
       go: goTo,
       track: () => trackEl ?? null,
       preview: setPreview,

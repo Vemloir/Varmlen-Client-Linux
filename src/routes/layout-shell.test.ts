@@ -17,7 +17,8 @@ describe("shell: tabs by swipe, with the new page arriving from the side", () =>
 
   it("hands the content area to the swipe action", () => {
     expect(shell).toMatch(/<main\s+class="content"\s+use:swipeNav=\{\{/s);
-    expect(shell).toMatch(/path: \(\) => page\.url\.pathname/);
+    // Not `page.url.pathname`: the origin Tauri serves from has no path at all.
+    expect(shell).toMatch(/path: \(\) => navPath\(\),/);
     expect(shell).toMatch(/go: goTo,/);
   });
 
@@ -154,7 +155,7 @@ describe("shell: each tab keeps the position the reader stopped at", () => {
     it(`${page} restores its own offset`, () => {
       const source = read(page);
       // Keyed by the live path, or by the path a preview is standing in for.
-      expect(source).toMatch(/use:persistScroll=\{preview \|\| page\.url\.pathname\}/);
+      expect(source).toMatch(/use:persistScroll=\{preview \|\| navPath\(\)\}/);
       expect(source).toMatch(/import \{ persistScroll \} from "\$lib\/scroll-memory"/);
     });
   }
