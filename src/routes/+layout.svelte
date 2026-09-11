@@ -1,6 +1,6 @@
 <script lang="ts">
   import "../app.css";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { NAV } from "$lib/nav";
@@ -16,6 +16,11 @@
   import { listen } from "@tauri-apps/api/event";
   import { theme } from "$lib/theme.svelte";
   import { isAndroid } from "$lib/platform";
+  // The pages a swipe can reach without a navigation. Imported as components so
+  // the neighbour can be mounted beside the page while the finger is still down.
+  import HomePage from "./+page.svelte";
+  import SplitPage from "./split/+page.svelte";
+  import SettingsPage from "./settings/+page.svelte";
 
   /** One-shot migration on first launch in a new origin (e.g. release vs dev
    *  use different WebKit storage). Pulls everything from the previous
@@ -85,14 +90,43 @@
   // Which way a new page arrives. Recorded while the path changes and cleared
   // when the animation is over, so a re-render cannot restart it.
   let slide = $state<"next" | "prev" | null>(null);
-  /** The element the finger drags. Read through a getter because the action is
-   *  attached to the content area before this child exists. */
-  let shellEl: HTMLDivElement | undefined = $state();
+  /** The element the finger drags: the current page and its neighbour together.
+   *  Read through a getter because the action is attached to the content area
+   *  before this child exists. */
+  let trackEl: HTMLDivElement | undefined = $state();
+  /** The neighbour mounted beside the page while a swipe is in progress. */
+  let preview = $state<{ path: string; side: "next" | "prev" } | null>(null);
+  /** A page that was dragged in is already standing where it belongs; running the
+   *  arrival keyframes on top of that reads as a stutter. */
+  let draggedIn: string | null = null;
   let previousPath = "/";
+
+  /** Which side of the page the neighbour belongs on. */
+  function setPreview(to: string | null): void {
+    if (!to) {
+      preview = null;
+      return;
+    }
+    const rank = (path: string) =>
+      TAB_PATHS.findIndex((tab) => (tab === "/" ? path === "/" : path.startsWith(tab)));
+    preview = { path: to, side: rank(to) >= rank(page.url.pathname) ? "next" : "prev" };
+  }
+
+  async function goTo(to: string): Promise<void> {
+    draggedIn = to;
+    await goto(to);
+    await tick();
+  }
+
   $effect(() => {
     const path = page.url.pathname;
     const direction = slideDirection(previousPath, path, TAB_PATHS);
     previousPath = path;
+    if (draggedIn === path) {
+      draggedIn = null;
+      slide = null;
+      return;
+    }
     if (!direction) {
       slide = null;
       return;
@@ -203,18 +237,41 @@
     class="content"
     use:swipeNav={{
       path: () => page.url.pathname,
-      go: (to) => void goto(to),
-      shell: () => shellEl ?? null,
+      go: goTo,
+      track: () => trackEl ?? null,
+      preview: setPreview,
     }}
   >
-    <div bind:this={shellEl} class="page-shell" class:from-right={slide === "next"} class:from-left={slide === "prev"}>
-      {@render children?.()}
+    <div bind:this={trackEl} class="page-track">
+      <div class="page-shell" class:from-right={slide === "next"} class:from-left={slide === "prev"}>
+        {@render children?.()}
+      </div>
+      {#if preview}
+        <!-- The tab the finger is dragging towards, for real: same components,
+             same stores, no data of its own to invent. It cannot be touched
+             because the finger is busy with the gesture. -->
+        <div
+          class="page-shell preview"
+          class:preview--next={preview.side === "next"}
+          class:preview--prev={preview.side === "prev"}
+          aria-hidden="true"
+        >
+          {#if preview.path === "/"}
+            <HomePage preview={preview.path} />
+          {:else if preview.path.startsWith("/split")}
+            <SplitPage preview={preview.path} />
+          {:else if preview.path.startsWith("/settings")}
+            <SettingsPage preview={preview.path} />
+          {/if}
+        </div>
+      {/if}
     </div>
     <!-- Over the pages, under the pill (5) and under every modal (100). The fade
          is a layer rather than a mask on the scroll container: a mask makes that
          container a stacking context, and every modal inside it then paints under
          the tab pill -- dimmed page, bright pill. -->
-    <div class="edge-fade edge-fade--bottom" aria-hidden="true"></div>
+    <div class="edge-fade edge-fade--base" aria-hidden="true"></div>
+    <div class="edge-fade edge-fade--dome" aria-hidden="true"></div>
   </main>
 
   <nav class="tabbar">
@@ -256,15 +313,41 @@
      can move for a tab change without asking the pages to cooperate. */
   .edge-fade {
     position: absolute;
-    left: 0;
-    right: 0;
     pointer-events: none;
     z-index: 3;
+    background: var(--bg);
   }
-  .edge-fade--bottom {
+  /* Past the pill's shoulders the list only loses its very bottom -- the pill is
+     where the eye expects content to disappear, not the corners of the window. */
+  .edge-fade--base {
+    left: 0;
+    right: 0;
     bottom: 0;
-    height: var(--fade-bottom);
-    background: linear-gradient(to top, var(--bg), transparent);
+    height: var(--fade-base);
+    -webkit-mask-image: linear-gradient(to top, #000 30%, transparent);
+    mask-image: linear-gradient(to top, #000 30%, transparent);
+  }
+  /* Over the pill the fade climbs to the full band, and its outline is the pill's
+     own: an ellipse inscribed in a box of the pill's width plus a bleed, and of
+     the whole band height, feathered at the shoulder. Change --nav-width or
+     --nav-height and the curve follows without touching this rule. */
+  .edge-fade--dome {
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 0;
+    width: calc(var(--nav-width) + 2 * var(--fade-bleed));
+    height: var(--fade-height);
+    -webkit-mask-image: radial-gradient(
+      farthest-side at 50% 100%,
+      #000 62%,
+      transparent 100%
+    );
+    mask-image: radial-gradient(farthest-side at 50% 100%, #000 62%, transparent 100%);
+  }
+
+  .page-track {
+    position: absolute;
+    inset: 0;
   }
 
   .page-shell {
@@ -273,6 +356,20 @@
     /* No will-change here on purpose. It would give this element its own layer
        and therefore its own stacking context, and every modal rendered inside a
        page would then sit under the tab pill -- dimmed page, bright pill. */
+  }
+
+  /* The neighbour sits outside the viewport, ready to be dragged in. */
+  .preview {
+    left: auto;
+    right: auto;
+    width: 100%;
+    pointer-events: none;
+  }
+  .preview--next {
+    left: 100%;
+  }
+  .preview--prev {
+    right: 100%;
   }
   /* Transform and opacity only, and the arriving page rather than a crossfade:
      the outgoing page is already gone by the time the new one is rendered, and
@@ -306,7 +403,7 @@
     /* The partitions are gaps rather than drawn lines: they run the full height
        of the pill by construction, and what scrolls behind them stays visible. */
     gap: 2px;
-    width: min(300px, calc(100% - 48px));
+    width: var(--nav-width);
     height: var(--nav-height);
   }
   .tab {

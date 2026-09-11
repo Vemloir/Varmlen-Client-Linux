@@ -30,13 +30,24 @@ const DRAG_START_PX = 10;
 const WALL_LIMIT_PX = 96;
 /** The way back when the drag did not reach the threshold. */
 const SETTLE = "transform 160ms cubic-bezier(0.2, 0, 0, 1)";
+/** How long the released page takes to land on the neighbour it was dragged to. */
+const COMMIT_MS = 180;
+const COMMIT = `transform ${COMMIT_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export interface SwipeNavOptions {
   /** Read at the moment of the gesture, so the action never holds a stale path. */
   path: () => string;
-  go: (path: string) => void;
-  /** The element that rides with the pointer. */
-  shell?: () => HTMLElement | null;
+  /** Resolves once the new page is in the DOM. */
+  go: (path: string) => Promise<void> | void;
+  /** The element that rides with the pointer: the track carrying the current page
+   *  and the neighbour mounted beside it. */
+  track?: () => HTMLElement | null;
+  /** The neighbour to mount beside the page while the finger is down, and null
+   *  when the gesture ends. Without it a swipe reveals a strip of background
+   *  instead of the tab it is heading for. */
+  preview?: (path: string | null) => void;
   order?: readonly string[];
 }
 
@@ -48,11 +59,20 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
   let pointerId: number | null = null;
   let dragging = false;
   let offset = 0;
+  let previewTo: string | null = null;
+  let committing = false;
 
-  const shell = () => options.shell?.() ?? null;
+  const track = () => options.track?.() ?? null;
+
+  /** Mount -- or keep mounted -- the neighbour the finger is heading for. */
+  const showPreview = (to: string | null) => {
+    if (to === previewTo) return;
+    previewTo = to;
+    options.preview?.(to);
+  };
 
   const move = (dx: number, withTransition: boolean) => {
-    const element = shell();
+    const element = track();
     if (!element) return;
     element.style.transition = withTransition ? SETTLE : "none";
     element.style.transform = dx === 0 ? "" : `translateX(${dx}px)`;
@@ -65,9 +85,34 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     dragging = false;
   };
 
+  /**
+   * Land the released page on its neighbour, then swap the route underneath it.
+   * The route changes only after the animation and the preview is dropped in the
+   * same frame the track returns to rest: do it the other way round and the old
+   * page flashes back at full width while the new one mounts.
+   */
+  const commit = async (to: string, direction: SwipeDirection) => {
+    committing = true;
+    const element = track();
+    const width = element?.clientWidth ?? 0;
+    if (element && width > 0) {
+      element.style.transition = COMMIT;
+      element.style.transform = `translateX(${direction === "next" ? -width : width}px)`;
+      await wait(COMMIT_MS);
+    }
+    await options.go(to);
+    showPreview(null);
+    offset = 0;
+    if (element) {
+      element.style.transition = "none";
+      element.style.transform = "";
+    }
+    committing = false;
+  };
+
   const onDown = (event: PointerEvent) => {
     release();
-    if (event.button !== 0) return;
+    if (event.button !== 0 || committing) return;
     const target = event.target as HTMLElement | null;
     if (target?.closest(`${CONTROLS}, ${OVERLAYS}`)) return;
     startX = event.clientX;
@@ -89,8 +134,10 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       node.setPointerCapture?.(event.pointerId);
     }
     const direction: SwipeDirection = dx < 0 ? "next" : "prev";
-    const blocked = neighbourPath(options.path(), direction, order) === null;
-    offset = blocked ? wallOffset(dx, WALL_LIMIT_PX) : dx;
+    const neighbour = neighbourPath(options.path(), direction, order);
+    // At the end of the strip there is no neighbour to show, only a wall.
+    showPreview(neighbour);
+    offset = neighbour === null ? wallOffset(dx, WALL_LIMIT_PX) : dx;
     move(offset, false);
   };
 
@@ -101,21 +148,19 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     const dx = event.clientX - startX;
     const direction = swipeDirection(dx, event.clientY - startY, performance.now() - startAt);
     const target = direction ? neighbourPath(options.path(), direction, order) : null;
-    offset = 0;
-    if (target) {
-      // Drop the offset in the same frame as the navigation: the new page is
-      // rendered at rest and arrives with its own slide, instead of starting
-      // from wherever the finger left it.
-      move(0, false);
-      options.go(target);
+    if (target && wasDragging) {
+      void commit(target, direction === "next" ? "next" : "prev");
       return;
     }
+    showPreview(null);
+    offset = 0;
     if (wasDragging) move(0, true);
   };
 
   const onCancel = () => {
     if (pointerId === null) return;
     release();
+    showPreview(null);
     move(0, true);
   };
 

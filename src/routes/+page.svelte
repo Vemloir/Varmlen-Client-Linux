@@ -27,6 +27,12 @@
   import type { Subscription, ServerEntry } from "$lib/subs.svelte";
   import type { LocationAction } from "$lib/location-actions";
 
+  interface Props {
+    /** Path of the tab this page is standing in as; empty when it is the page. */
+    preview?: string;
+  }
+  let { preview = "" }: Props = $props();
+
   type ModalKind =
     | "none"
     | "info"
@@ -503,7 +509,7 @@
     {/if}
   </section>
 
-  <main class="scroll" use:persistScroll={page.url.pathname}>
+  <main class="scroll" use:persistScroll={preview || page.url.pathname}>
 
   {#each subs.ordered as sub (sub.id)}
     {@const isManual = subs.isManualCard(sub)}

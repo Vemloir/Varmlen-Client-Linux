@@ -59,10 +59,15 @@
   /* The tab pill floats over the pages instead of taking a row of its own, so
      every scrolling page has to keep this much room at the bottom -- otherwise
      the last row hides under it for good. */
-  --fade-top: 10px;
   --fade-bottom: 56px;
   --nav-height: 48px;
   --nav-inset: 10px;
+  /* Everything about the fade at the bottom edge is derived from the pill: the
+     band beside it, the bleed past its shoulders and the height it climbs to. */
+  --nav-width: min(300px, calc(100% - 48px));
+  --fade-bleed: 64px;
+  --fade-base: calc(var(--nav-inset) + var(--nav-height) / 2);
+  --fade-height: calc(var(--nav-inset) + var(--nav-height) + var(--fade-bottom));
   --nav-clearance: calc(var(--nav-height) + var(--nav-inset) + 16px);
 
   /* One rounding family, scaled up: a control that is a third of a card should

@@ -18,9 +18,28 @@
   clipboard.
 - Each tab keeps the scroll position the reader stopped at, per path, so switching
   to Split and back no longer starts at the top of both.
-- The session pill plate is the application background, so it paints no plate at
-  all and its separators took the lighter colour: a line the colour of the surface
-  it is drawn on is not a line.
+- The session pill and the tab pill are plates again, and their partitions are 2px
+  gaps rather than drawn lines: a line the colour of the surface it is drawn on is
+  not a line, and a gap shows whatever is scrolling behind it. The tab pill's plate
+  is the panel colour darkened, derived from `--bg-elev` so the light theme gets
+  the same treatment without being told twice.
+- Content now reaches the bottom edge of the window and fades out there, instead of
+  being cut above a bar. The fade is a layer in the shell: as a mask on the scroll
+  container it turned that container into a stacking context, and every window
+  opened inside a page painted under the tab pill -- dimmed page, bright pill. Its
+  outline is the pill's own, an ellipse inscribed in the pill's width and the band's
+  height, so past the pill's shoulders the list only loses its very bottom. Change
+  `--nav-width` or `--nav-height` and the curve follows.
+- A swipe reveals the tab it is heading for, not a strip of background. The
+  neighbour page is mounted beside the current one for the length of the gesture --
+  the same component over the same stores, no data of its own to invent -- and the
+  route changes only after the released page has landed on it, with the neighbour
+  dropped in the same frame the track returns to rest. Doing it the other way round
+  flashes the old page back at full width. A page dragged in does not then run its
+  arrival animation a second time, and the neighbour cannot be tapped, is hidden
+  from the accessibility tree, keeps its own reading position and does no live
+  page's work: Settings would otherwise read autostart, the app version and the
+  notification permission and ask GitHub for core versions on every gesture.
 - Home: a session pill under the power button -- upstream throughput, how long the
   tunnel has been up, downstream throughput. Throughput is measured between two
   samples rather than assumed to be one second, and it comes from the tunnel

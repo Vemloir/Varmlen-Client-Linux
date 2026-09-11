@@ -16,6 +16,12 @@
   } from "$lib/site-pattern";
   import Dropdown from "$lib/components/Dropdown.svelte";
 
+  interface Props {
+    /** Path of the tab this page is standing in as; empty when it is the page. */
+    preview?: string;
+  }
+  let { preview = "" }: Props = $props();
+
   type Tab = "apps" | "websites";
   let tab = $state<Tab>(
     appSplitAvailable(settings.vpnMode) ? "apps" : "websites",
@@ -221,7 +227,7 @@
   <h1>{t("split.title")}</h1>
 </header>
 
-<div class="page" use:persistScroll={page.url.pathname}>
+<div class="page" use:persistScroll={preview || page.url.pathname}>
 
   <div class="segmented" role="tablist" bind:this={segEl}>
     <span class="seg-thumb" style={thumbStyle} aria-hidden="true"></span>

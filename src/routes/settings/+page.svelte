@@ -14,6 +14,12 @@
   import { isAndroid } from "$lib/platform";
   import { getVersion } from "@tauri-apps/api/app";
 
+  interface Props {
+    /** Path of the tab this page is standing in as; empty when it is the page. */
+    preview?: string;
+  }
+  let { preview = "" }: Props = $props();
+
   const logLevelOptions = $derived([
     { value: "debug", label: "debug" },
     { value: "warn", label: "warn" },
@@ -99,6 +105,7 @@
   let autostartMinimized = $state(false);
   let appVersion = $state("…");
   onMount(async () => {
+    if (preview) return;
     try {
       const s = await autostartStatus();
       autostart = s.enabled;
@@ -108,6 +115,7 @@
     }
   });
   onMount(async () => {
+    if (preview) return;
     try {
       appVersion = await getVersion();
     } catch {
@@ -124,6 +132,7 @@
     }
   }
   onMount(() => {
+    if (preview) return;
     refreshNotif();
     const onVis = () => { if (document.visibilityState === "visible") refreshNotif(); };
     document.addEventListener("visibilitychange", onVis);
@@ -178,6 +187,7 @@
 
   // Refresh the core's status when Settings opens (cheap GitHub check).
   $effect(() => {
+    if (preview) return;
     void core.check();
   });
 
@@ -253,7 +263,7 @@
   <h1>{t("settings.title")}</h1>
 </header>
 
-<main class="scroll" use:persistScroll={page.url.pathname}>
+<main class="scroll" use:persistScroll={preview || page.url.pathname}>
   <section>
     <h2>{t("settings.appearance")}</h2>
     <div class="list">

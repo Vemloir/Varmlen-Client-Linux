@@ -18,7 +18,7 @@ describe("shell: tabs by swipe, with the new page arriving from the side", () =>
   it("hands the content area to the swipe action", () => {
     expect(shell).toMatch(/<main\s+class="content"\s+use:swipeNav=\{\{/s);
     expect(shell).toMatch(/path: \(\) => page\.url\.pathname/);
-    expect(shell).toMatch(/go: \(to\) => void goto\(to\)/);
+    expect(shell).toMatch(/go: goTo,/);
   });
 
   it("rides with the pointer and slows down into the end of the list", () => {
@@ -28,8 +28,8 @@ describe("shell: tabs by swipe, with the new page arriving from the side", () =>
     // finger buys less of it, and it never reaches the limit.
     expect(action).toMatch(/wallOffset\(dx, WALL_LIMIT_PX\)/);
     // And the layout hands it the element to move.
-    expect(layout).toMatch(/shell: \(\) => shellEl/);
-    expect(layout).toMatch(/bind:this=\{shellEl\}/);
+    expect(layout).toMatch(/track: \(\) => trackEl/);
+    expect(layout).toMatch(/bind:this=\{trackEl\}/);
   });
 
   it("does not take a gesture that starts on a control or an open window", () => {
@@ -43,7 +43,7 @@ describe("shell: tabs by swipe, with the new page arriving from the side", () =>
 
   it("wraps the page in the one element that can move", () => {
     expect(shell).toMatch(
-      /<div bind:this=\{shellEl\} class="page-shell" class:from-right=\{slide === "next"\} class:from-left=\{slide === "prev"\}>\s*\{@render children\?\.\(\)\}/s,
+      /<div bind:this=\{trackEl\} class="page-track">\s*<div class="page-shell"[^>]*>\s*\{@render children\?\.\(\)\}/s,
     );
     // Every page is absolutely positioned, so the wrapper has to be the box they
     // position against, or the swipe moves nothing.
@@ -98,7 +98,9 @@ describe("shell: the tab pill floats over the pages, in three segments", () => {
   });
 
   it("is narrower than the window, so it reads as a control and not as an edge", () => {
-    expect(css).toMatch(/\.tabbar\s*\{[^}]*width:\s*min\(300px, calc\(100% - 48px\)\);/s);
+    // The pill is a fixed, centred object rather than a bar spanning the window.
+    expect(css).toMatch(/\.tabbar\s*\{[^}]*width:\s*var\(--nav-width\);/s);
+    expect(css).toMatch(/left:\s*50%;/);
   });
 
   it("leaves the page layer out of the modal fight", () => {
@@ -112,9 +114,15 @@ describe("shell: the tab pill floats over the pages, in three segments", () => {
   it("fades the pages out at the bottom edge, without masking them", () => {
     const app = read("../app.css");
     expect(app).toMatch(/--fade-bottom:\s*56px;/);
-    expect(css).toMatch(
-      /\.edge-fade--bottom\s*\{[^}]*background:\s*linear-gradient\(to top, var\(--bg\), transparent\);/s,
+    // The curve belongs to the pill: width, height and the band beside it are all
+    // derived from the nav tokens.
+    expect(app).toMatch(/--nav-width:\s*min\(300px, calc\(100% - 48px\)\);/);
+    expect(app).toMatch(
+      /--fade-height:\s*calc\(var\(--nav-inset\) \+ var\(--nav-height\) \+ var\(--fade-bottom\)\);/,
     );
+    expect(css).toMatch(/\.tabbar\s*\{[^}]*width:\s*var\(--nav-width\);/s);
+    expect(css).toMatch(/\.edge-fade--dome\s*\{[^}]*width:\s*calc\(var\(--nav-width\) \+ 2 \* var\(--fade-bleed\)\);/s);
+    expect(css).toMatch(/farthest-side at 50% 100%/);
     // A mask on the scroll container is what trapped every modal under the pill.
     expect(app).not.toMatch(/fade-y/);
     for (const page of ["./+page.svelte", "./split/+page.svelte", "./settings/+page.svelte"]) {
@@ -143,7 +151,8 @@ describe("shell: each tab keeps the position the reader stopped at", () => {
   for (const page of ["./+page.svelte", "./split/+page.svelte", "./settings/+page.svelte"]) {
     it(`${page} restores its own offset`, () => {
       const source = read(page);
-      expect(source).toMatch(/use:persistScroll=\{page\.url\.pathname\}/);
+      // Keyed by the live path, or by the path a preview is standing in for.
+      expect(source).toMatch(/use:persistScroll=\{preview \|\| page\.url\.pathname\}/);
       expect(source).toMatch(/import \{ persistScroll \} from "\$lib\/scroll-memory"/);
     });
   }
