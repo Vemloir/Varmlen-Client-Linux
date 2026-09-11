@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Home: a session pill under the power button -- upstream throughput, how long the
+  tunnel has been up, downstream throughput. Throughput is measured between two
+  samples rather than assumed to be one second, and it comes from the tunnel
+  device counters, which the GUI reads itself because `/sys/class/net/<if>` is
+  world-readable. The age comes from the device too: its sysfs timestamp agreed
+  with the core process start to the second, so a restart of the window no longer
+  turns a two-day tunnel into "12 s". The pill never leaves the screen when the
+  tunnel is down -- grey, not absent, so the hero does not breathe on reconnect.
+- Location rows: the latency label is inside the row button now. As a sibling it
+  was a 44px strip in the middle of every row that took a click, a long press and
+  a right-click and answered none of them.
 - Split, the apps window: every surface inside it is the application background now --
   the list plate, the search field, and both buttons, which also lost their outlines.
   On a card that is one step lighter they read as cut out of it instead of as boxes

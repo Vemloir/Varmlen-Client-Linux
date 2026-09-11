@@ -1,4 +1,11 @@
-import { vpnConnect, vpnDisconnect, vpnStatus, type SplitInput } from "$lib/api";
+import {
+  tunnelStats,
+  vpnConnect,
+  vpnDisconnect,
+  vpnStatus,
+  type SplitInput,
+} from "$lib/api";
+import { SessionThroughput } from "$lib/session-stats";
 import { subs } from "$lib/subs.svelte";
 import { split } from "$lib/split.svelte";
 import { settings } from "$lib/settings.svelte";
@@ -28,8 +35,63 @@ class ConnStore {
   /** True while in the "dropped" phase WITH the kill switch holding traffic. */
   blockedByKillswitch = $state(false);
 
+  /** Throughput of the tunnel, bytes per second over the last sample, and the
+   *  age of the tunnel in seconds. Zero while disconnected: the pill reports
+   *  that state, it does not disappear. */
+  sessionUp = $state(0);
+  sessionDown = $state(0);
+  sessionSeconds = $state(0);
+
   private operations = new ConnectionOperationGate();
   private dropListenerStarted = false;
+  private throughput = new SessionThroughput();
+  private sessionStartedAt = 0;
+  private sessionTickerStarted = false;
+
+  /** Count the session once a second while the tunnel is up. Started from
+   *  refresh(), next to the drop listener: both are about the tunnel, not about
+   *  whichever page happens to be open. */
+  startSessionTicker(): void {
+    if (this.sessionTickerStarted) return;
+    this.sessionTickerStarted = true;
+    setInterval(() => void this.tickSession(), 1000);
+  }
+
+  private async tickSession(): Promise<void> {
+    if (this.status !== "connected") return;
+    let stats;
+    try {
+      stats = await tunnelStats();
+    } catch {
+      return; // no counters on this platform; the pill stays at zero
+    }
+    if (!stats || this.status !== "connected") return;
+    const at = Date.now();
+    const rate = this.throughput.sample({ up: stats.tx_bytes, down: stats.rx_bytes }, at);
+    this.sessionUp = rate.up;
+    this.sessionDown = rate.down;
+    // The device knows how old the tunnel is; only if sysfs would not say do we
+    // fall back to when this window noticed the connection.
+    const since = stats.since_unix ?? Math.floor(this.sessionStartedAt / 1000);
+    this.sessionSeconds = Math.max(0, Math.floor(at / 1000) - since);
+  }
+
+  /** A tunnel came up: start counting from here, not from whatever the device
+   *  has carried since it was created. */
+  private openSession(): void {
+    if (this.sessionStartedAt !== 0) return;
+    this.sessionStartedAt = Date.now();
+    this.throughput.reset();
+    this.sessionSeconds = 0;
+  }
+
+  private closeSession(): void {
+    this.sessionStartedAt = 0;
+    this.throughput.reset();
+    this.sessionUp = 0;
+    this.sessionDown = 0;
+    this.sessionSeconds = 0;
+  }
 
   /** Subscribe to backend "vpn-dropped" events (tunnel died unexpectedly). The
    *  payload is `true` when the kill switch is holding traffic blocked. */
@@ -181,6 +243,7 @@ class ConnStore {
    *  still connected, or core crashed/dropped while the window was away). */
   async refresh(): Promise<void> {
     this.startDropListener();
+    this.startSessionTicker();
     const generation = this.operations.snapshot();
     try {
       const resp = await vpnStatus();
@@ -213,9 +276,11 @@ class ConnStore {
       this.status = "connected";
       this.lastConnectedAt = Date.now();
       this.blockedByKillswitch = false;
+      this.openSession();
     } else if (this.status === "connected" || this.status === "dropped") {
       this.status = "disconnected";
       this.blockedByKillswitch = false;
+      this.closeSession();
     }
   }
 
@@ -224,6 +289,7 @@ class ConnStore {
       this.status = "connected";
       this.lastConnectedAt = Date.now();
       this.blockedByKillswitch = false;
+      this.openSession();
       return;
     }
     if (state === "dropped") {
@@ -234,6 +300,7 @@ class ConnStore {
     }
     this.status = "disconnected";
     this.blockedByKillswitch = false;
+    this.closeSession();
   }
 }
 

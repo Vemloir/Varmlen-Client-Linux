@@ -204,6 +204,15 @@ const EN: Dict = {
   "ping.na": "n/a",
   "ping.ms": "{n} ms",
 
+  // Session pill under the power button
+  "session.upload": "Upstream, last second",
+  "session.download": "Downstream, last second",
+  "session.duration": "Connected for",
+  "session.seconds": "{n} s",
+  "session.minutes": "{n} min",
+  "session.hours": "{n} h",
+  "session.days": "{n} d",
+
   // VPN mode
   "settings.vpnMode": "VPN mode",
   "mode.tun": "TUN (system-wide)",
@@ -426,6 +435,14 @@ const RU: Dict = {
   "ping.proxy": "Через прокси (HTTP)",
   "ping.na": "н/д",
   "ping.ms": "{n} мс",
+
+  "session.upload": "Отдача, за последнюю секунду",
+  "session.download": "Загрузка, за последнюю секунду",
+  "session.duration": "Подключены уже",
+  "session.seconds": "{n} с",
+  "session.minutes": "{n} мин",
+  "session.hours": "{n} ч",
+  "session.days": "{n} дн",
 
   "settings.vpnMode": "Режим VPN",
   "mode.tun": "TUN (всё устройство)",

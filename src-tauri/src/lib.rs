@@ -369,6 +369,7 @@ pub fn run() {
             vpn::vpn_disconnect,
             vpn::vpn_apply_split,
             vpn::vpn_status,
+            vpn::tunnel_stats,
             vpn::tcp_ping_host,
             vpn::proxy_get_ping,
             vpn::vpn_log,

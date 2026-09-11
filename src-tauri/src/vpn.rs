@@ -506,6 +506,52 @@ pub async fn proxy_get_ping(
     }
 }
 
+/// Traffic through the tunnel device, in bytes, as the kernel counted it.
+#[derive(Serialize)]
+pub struct TunnelStats {
+    pub tx_bytes: u64,
+    pub rx_bytes: u64,
+    /// When the device appeared, if sysfs knew.
+    ///
+    /// The device belongs to the tunnel, not to this window: the daemon keeps
+    /// the tunnel up across restarts of the interface on purpose, so the pill
+    /// has to ask the device how old it is instead of counting from the moment
+    /// the window noticed the connection. Measured against the core process:
+    /// the directory timestamp and the process start agree to the second.
+    pub since_unix: Option<u64>,
+}
+
+/// Read the counters of the tunnel interface.
+///
+/// `/sys/class/net/<if>/statistics` is world-readable, so the GUI reads it
+/// itself instead of asking the daemon for a round trip. The root is a
+/// parameter so the test can point it at a directory it made; the device is
+/// missing whenever the tunnel is down, which is the honest `None`.
+pub fn read_tunnel_stats(root: &std::path::Path) -> Option<TunnelStats> {
+    let stats_dir = root.join(crate::xray::TUN_NAME).join("statistics");
+    let counter = |name: &str| -> Option<u64> {
+        let text = std::fs::read_to_string(stats_dir.join(name)).ok()?;
+        text.trim().parse::<u64>().ok()
+    };
+    let appeared = std::fs::metadata(root.join(crate::xray::TUN_NAME))
+        .ok()
+        .and_then(|meta| meta.modified().ok())
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|since_epoch| since_epoch.as_secs());
+    Some(TunnelStats {
+        tx_bytes: counter("tx_bytes")?,
+        rx_bytes: counter("rx_bytes")?,
+        since_unix: appeared,
+    })
+}
+
+/// Traffic counters of the running tunnel, or null when there is no tunnel
+/// device: disconnected, or a platform that does not expose these counters.
+#[tauri::command]
+pub fn tunnel_stats() -> Option<TunnelStats> {
+    read_tunnel_stats(std::path::Path::new("/sys/class/net"))
+}
+
 /// The daemon intentionally outlives the GUI, so closing or restarting the
 /// interface never tears down an otherwise healthy 24/7 tunnel.
 pub(crate) fn teardown_on_exit(_app: &tauri::AppHandle) {}
@@ -518,6 +564,26 @@ mod tests {
         assert!(!source.contains(concat!("set", "cap")));
         assert!(!source.contains(concat!("Command", "::new")));
         assert!(!source.contains(concat!("varmlen", "-probe")));
+    }
+
+    #[test]
+    fn tunnel_stats_reads_both_counters_and_gives_up_without_the_device() {
+        let root = std::env::temp_dir().join("varmlen-tunnel-stats-read");
+        let dir = root.join(crate::xray::TUN_NAME).join("statistics");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("tx_bytes"), "1234\n").unwrap();
+        std::fs::write(dir.join("rx_bytes"), "5678\n").unwrap();
+        let stats = super::read_tunnel_stats(&root).expect("counters");
+        assert_eq!((stats.tx_bytes, stats.rx_bytes), (1234, 5678));
+        // The directory was made a moment ago, so its timestamp is "now".
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let age = now.checked_sub(stats.since_unix.unwrap()).unwrap();
+        assert!(age < 60, "device timestamp should be now, was {age}s ago");
+        std::fs::remove_dir_all(&root).unwrap();
+        assert!(super::read_tunnel_stats(&root).is_none());
     }
 
     #[test]

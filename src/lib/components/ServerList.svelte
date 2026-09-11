@@ -134,16 +134,19 @@
           </div>
           <div class="srv-tr dim">{server.transport}</div>
         </div>
+        <!-- The latency belongs INSIDE the row button. As a sibling it sat
+             between the row and the chevron as a 44px strip answering no click,
+             no long press and no right-click. -->
+        <span class="srv-ping" aria-label="latency">
+          {#if ping === "pinging"}
+            …
+          {:else if ping === "timeout"}
+            {t("ping.na")}
+          {:else if typeof ping === "number"}
+            {t("ping.ms", { n: ping })}
+          {/if}
+        </span>
       </button>
-      <span class="srv-ping" aria-label="latency">
-        {#if ping === "pinging"}
-          …
-        {:else if ping === "timeout"}
-          {t("ping.na")}
-        {:else if typeof ping === "number"}
-          {t("ping.ms", { n: ping })}
-        {/if}
-      </span>
       <button
         class="srv-detail"
         aria-label="Location details"
@@ -247,6 +250,7 @@
   }
   .chev { color: inherit; flex-shrink: 0; }
   .srv-ping {
+    flex-shrink: 0;
     align-self: center;
     font-variant-numeric: tabular-nums;
     font-size: 12px;

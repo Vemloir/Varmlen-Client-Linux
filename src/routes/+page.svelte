@@ -4,6 +4,7 @@
   import { subs } from "$lib/subs.svelte";
   import { t } from "$lib/i18n.svelte";
   import { readClipboard } from "$lib/api";
+  import { formatRate, sessionDuration } from "$lib/session-stats";
   import { releaseActiveControl } from "$lib/modal-lifecycle";
   import { modalActionFromTarget } from "$lib/modal-events";
   import { isAndroid } from "$lib/platform";
@@ -372,6 +373,20 @@
 
   const statusLabel = $derived(t(`status.${conn.status}`));
 
+  const DURATION_KEYS = {
+    s: "session.seconds",
+    min: "session.minutes",
+    h: "session.hours",
+    d: "session.days",
+  } as const;
+
+  const connectedFor = $derived(
+    (() => {
+      const d = sessionDuration(conn.sessionSeconds);
+      return t(DURATION_KEYS[d.unit], { n: d.value });
+    })(),
+  );
+
 
   function openImport(): void {
     setImportMode("choose");
@@ -456,6 +471,28 @@
       </svg>
     </button>
     <div class="status-text" data-status={conn.status}>{statusLabel}</div>
+    <!-- Session pill: what we sent, for how long, what we got back. The space is
+         reserved when disconnected so connecting does not shove the list down. -->
+    <!-- Session pill: what goes out, for how long, what comes back. It never
+         leaves the screen -- "not connected" is a state it reports in grey, not
+         an absence, so the hero does not breathe when the tunnel changes. -->
+    <div class="session-pill" class:idle={conn.status !== "connected"}>
+      <span class="session-part" title={t("session.upload")}
+        ><svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 19V6M6 12l6-6 6 6" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        {formatRate(conn.sessionUp)}</span
+      >
+      <span class="session-sep" aria-hidden="true"></span>
+      <span class="session-part" title={t("session.duration")}>{connectedFor}</span>
+      <span class="session-sep" aria-hidden="true"></span>
+      <span class="session-part" title={t("session.download")}
+        ><svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5v13M6 12l6 6 6-6" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        {formatRate(conn.sessionDown)}</span
+      >
+    </div>
     {#if conn.error}
       <div class="conn-error" class:blocked={conn.status === "dropped"}>{conn.error}</div>
     {/if}
@@ -1039,6 +1076,34 @@
     letter-spacing: 0.1em;
     color: var(--text-muted);
     margin-top: 6px;
+  }
+  .session-pill {
+    display: flex;
+    align-items: stretch;
+    margin-top: 10px;
+    border-radius: 999px;
+    /* On the page background the plate has to be the raised colour; the app
+       background here would be the same colour as what is behind it. */
+    background: var(--bg-elev);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .session-pill.idle { color: var(--text-muted); }
+  .session-part {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 10px;
+    white-space: nowrap;
+  }
+  /* Full height of the plate: a 12px stub floating in the middle reads as a
+     decoration rather than as the line between two numbers. */
+  .session-sep {
+    width: 1px;
+    background: var(--bg);
   }
   .status-text[data-status="connected"] { color: var(--accent); }
   .status-text[data-status="connecting"] { color: var(--accent); }
