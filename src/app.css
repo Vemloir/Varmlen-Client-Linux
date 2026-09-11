@@ -76,6 +76,21 @@
   /* No blue tap flash / long-press callout on Android WebView. */
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
+  /* Nothing in here is text to read; it is a control. Selection also owns the
+     long press, which is the gesture the location menu is trying to make. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* The user's own text stays selectable: fields, the JSON editor, anything that
+   says otherwise. Taking that away would be tidying up somebody's clipboard. */
+input,
+textarea,
+select,
+[contenteditable],
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 html,

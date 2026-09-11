@@ -1,6 +1,8 @@
 <script lang="ts">
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { conn } from "$lib/conn.svelte";
+  import { page } from "$app/state";
+  import { persistScroll } from "$lib/scroll-memory";
   import { subs } from "$lib/subs.svelte";
   import { t } from "$lib/i18n.svelte";
   import { readClipboard } from "$lib/api";
@@ -501,7 +503,7 @@
     {/if}
   </section>
 
-  <main class="scroll fade-y">
+  <main class="scroll fade-y" use:persistScroll={page.url.pathname}>
 
   {#each subs.ordered as sub (sub.id)}
     {@const isManual = subs.isManualCard(sub)}
@@ -1082,9 +1084,10 @@
     align-items: stretch;
     margin-top: 10px;
     border-radius: 999px;
-    /* On the page background the plate has to be the raised colour; the app
-       background here would be the same colour as what is behind it. */
-    background: var(--bg-elev);
+    /* The application background: on the page it paints no plate at all, which
+       is the point -- the three numbers and the lines between them are the
+       control, not a box carrying them. */
+    background: var(--bg);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
     color: var(--text);
@@ -1100,10 +1103,11 @@
     white-space: nowrap;
   }
   /* Full height of the plate: a 12px stub floating in the middle reads as a
-     decoration rather than as the line between two numbers. */
+     decoration rather than as the line between two numbers. The plate is the page
+     colour now, so the line has to be the lighter one to be seen at all. */
   .session-sep {
     width: 1px;
-    background: var(--bg);
+    background: var(--bg-elev);
   }
   .status-text[data-status="connected"] { color: var(--accent); }
   .status-text[data-status="connecting"] { color: var(--accent); }

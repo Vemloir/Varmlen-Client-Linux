@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- The tab bar is a narrow pill floating above the bottom edge, with 2px of the page
+  showing through between the tabs, instead of a panel welded to the edge.
+- Tabs switch by dragging sideways, and the page rides with the pointer while the
+  button is down. Past the first and the last tab it still moves, at a third of the
+  finger and no further than 64px, so the end of the app is something you feel
+  rather than something that fails. A gesture that starts on a control or on an
+  open window is not taken: a long press in the location list, or a swipe over a
+  half-typed form, keeps what it had. The new page arrives with a short slide from
+  the side it came from. Thresholds -- 72px of travel, twice as much sideways as
+  vertical, under 700ms -- are in `swipe.ts` with tests, because a swipe that
+  steals a scroll makes the app unreadable by touch.
+- Nothing in the interface is selectable. Fields, the JSON editor and anything
+  marked otherwise keep their text: taking that away would be tidying up somebody's
+  clipboard.
+- Each tab keeps the scroll position the reader stopped at, per path, so switching
+  to Split and back no longer starts at the top of both.
+- The session pill plate is the application background, so it paints no plate at
+  all and its separators took the lighter colour: a line the colour of the surface
+  it is drawn on is not a line.
 - Home: a session pill under the power button -- upstream throughput, how long the
   tunnel has been up, downstream throughput. Throughput is measured between two
   samples rather than assumed to be one second, and it comes from the tunnel

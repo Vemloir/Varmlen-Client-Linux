@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { page } from "$app/state";
+  import { persistScroll } from "$lib/scroll-memory";
   import { onDestroy, tick } from "svelte";
   import { split, type Mode } from "$lib/split.svelte";
   import { settings } from "$lib/settings.svelte";
@@ -219,7 +221,7 @@
   <h1>{t("split.title")}</h1>
 </header>
 
-<div class="page fade-y">
+<div class="page fade-y" use:persistScroll={page.url.pathname}>
 
   <div class="segmented" role="tablist" bind:this={segEl}>
     <span class="seg-thumb" style={thumbStyle} aria-hidden="true"></span>

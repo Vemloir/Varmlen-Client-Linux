@@ -2,7 +2,10 @@
   import "../app.css";
   import { onMount } from "svelte";
   import { page } from "$app/state";
+  import { goto } from "$app/navigation";
   import { NAV } from "$lib/nav";
+  import { swipeNav } from "$lib/swipe-nav";
+  import { slideDirection } from "$lib/swipe";
   import { t } from "$lib/i18n.svelte";
   import { core } from "$lib/core.svelte";
   import { conn } from "$lib/conn.svelte";
@@ -77,6 +80,28 @@
   // class re-evaluates reliably on every navigation (intermittent stale state
   // otherwise).
   const currentPath = $derived(page.url.pathname);
+  const TAB_PATHS = NAV.map((item) => item.path);
+
+  // Which way a new page arrives. Recorded while the path changes and cleared
+  // when the animation is over, so a re-render cannot restart it.
+  let slide = $state<"next" | "prev" | null>(null);
+  /** The element the finger drags. Read through a getter because the action is
+   *  attached to the content area before this child exists. */
+  let shellEl: HTMLDivElement | undefined = $state();
+  let previousPath = "/";
+  $effect(() => {
+    const path = page.url.pathname;
+    const direction = slideDirection(previousPath, path, TAB_PATHS);
+    previousPath = path;
+    if (!direction) {
+      slide = null;
+      return;
+    }
+    slide = direction;
+    const timer = setTimeout(() => (slide = null), 200);
+    return () => clearTimeout(timer);
+  });
+
   function isActive(path: string): boolean {
     if (path === "/") return currentPath === "/";
     return currentPath.startsWith(path);
@@ -174,8 +199,17 @@
 </script>
 
 <div class="app">
-  <main class="content">
-    {@render children?.()}
+  <main
+    class="content"
+    use:swipeNav={{
+      path: () => page.url.pathname,
+      go: (to) => void goto(to),
+      shell: () => shellEl ?? null,
+    }}
+  >
+    <div bind:this={shellEl} class="page-shell" class:from-right={slide === "next"} class:from-left={slide === "prev"}>
+      {@render children?.()}
+    </div>
   </main>
 
   <nav class="tabbar">
@@ -213,20 +247,51 @@
     overflow: hidden;
   }
 
+  /* Every page is absolutely positioned inside this, so it is the one thing that
+     can move for a tab change without asking the pages to cooperate. */
+  .page-shell {
+    position: absolute;
+    inset: 0;
+    /* The page rides with the pointer, so it gets its own layer: without it
+       every pixel of the drag repaints the whole scrolled page. */
+    will-change: transform;
+  }
+  /* Transform and opacity only, and the arriving page rather than a crossfade:
+     the outgoing page is already gone by the time the new one is rendered, and
+     pretending otherwise would need both mounted at once. */
+  @keyframes page-from-right {
+    from { transform: translateX(28px); opacity: 0.35; }
+    to { transform: none; opacity: 1; }
+  }
+  @keyframes page-from-left {
+    from { transform: translateX(-28px); opacity: 0.35; }
+    to { transform: none; opacity: 1; }
+  }
+  .page-shell.from-right { animation: page-from-right 180ms cubic-bezier(0.2, 0, 0, 1); }
+  .page-shell.from-left { animation: page-from-left 180ms cubic-bezier(0.2, 0, 0, 1); }
+
   /* Without the label the icon sits alone, so it gets the height the label used to
      take and stays on the same centre line. */
   .tab.no-label {
     padding: 9px 4px;
   }
 
+  /* A pill floating above the bottom edge instead of a panel welded to it. The
+     line between two tabs is 2px of the page showing through, the same idiom as
+     the session pill under the power button. */
   .tabbar {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    border-top: 1px solid var(--border);
+    align-self: center;
+    width: min(300px, calc(100% - 48px));
+    margin-bottom: max(10px, env(safe-area-inset-bottom));
+    border-radius: 999px;
     background: var(--bg-elev);
-    padding: 6px 4px 8px;
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding: 4px;
     flex-shrink: 0;
+  }
+  .tab + .tab {
+    border-left: 2px solid var(--bg);
   }
   .tab {
     display: flex;

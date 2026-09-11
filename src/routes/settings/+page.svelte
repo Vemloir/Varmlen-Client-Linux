@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { page } from "$app/state";
+  import { persistScroll } from "$lib/scroll-memory";
   import { theme } from "$lib/theme.svelte";
   import { MTU_MAX, MTU_MIN } from "$lib/mtu";
   import { settings, type VpnMode, type PingMethod, type LogLevel } from "$lib/settings.svelte";
@@ -251,7 +253,7 @@
   <h1>{t("settings.title")}</h1>
 </header>
 
-<main class="scroll fade-y">
+<main class="scroll fade-y" use:persistScroll={page.url.pathname}>
   <section>
     <h2>{t("settings.appearance")}</h2>
     <div class="list">

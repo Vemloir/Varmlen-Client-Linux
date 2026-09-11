@@ -49,14 +49,16 @@ describe("home: session pill under the power button", () => {
 
   it("runs its separators the full height of the plate", () => {
     expect(css).toMatch(/\.session-pill\s*\{[^}]*align-items:\s*stretch;/s);
-    expect(css).toMatch(/\.session-sep\s*\{[^}]*background:\s*var\(--bg\);/s);
+    // No height on the separator: it stretches, so it reaches both edges.
     expect(css.slice(css.indexOf(".session-sep"))).toMatch(/^\.session-sep\s*\{(?![^}]*height:)/s);
   });
 
-  it("paints the plate with the raised colour, never the page colour", () => {
-    // The pill sits on the page background, so var(--bg) here is the same colour
-    // as what is behind it and the control disappears.
-    expect(css).toMatch(/\.session-pill\s*\{[^}]*background:\s*var\(--bg-elev\);/s);
+  it("paints no plate at all, and keeps its lines the lighter colour", () => {
+    // Requested: the numbers and the lines between them are the control. A plate
+    // of the page colour would be invisible, so the separator has to be the
+    // lighter one -- the same flip the apps list needed for the same reason.
+    expect(css).toMatch(/\.session-pill\s*\{[^}]*background:\s*var\(--bg\);/s);
+    expect(css).toMatch(/\.session-sep\s*\{[^}]*background:\s*var\(--bg-elev\);/s);
   });
 
   it("has every duration unit in both languages", () => {
