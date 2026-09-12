@@ -55,7 +55,11 @@ describe("the neighbour under the finger", () => {
     // first tab unsweipeable. The row is released instead -- its long press cannot
     // see the movement once the page holds the pointer capture, and the click that
     // follows a swipe must not choose a location.
-    expect(source).toMatch(/element\.dispatchEvent\(new PointerEvent\("pointercancel", \{ bubbles: true \}\)\);/);
+    // Addressed to the control alone. A bubbling cancel reaches the content area,
+    // reads as the platform taking the pointer, and our own handler drops the
+    // gesture -- a swipe on a location row sprang back to rest.
+    expect(source).toMatch(/new PointerEvent\("pointercancel", \{ bubbles: false \}\)/);
+    expect(source).toMatch(/if \(!event\.isTrusted\) return;/);
     expect(source).toMatch(/document\.addEventListener\("click", swallow, \{ capture: true \}\);/);
     // Only the control that was let go loses its click -- a tap elsewhere a moment
     // later is a tap.

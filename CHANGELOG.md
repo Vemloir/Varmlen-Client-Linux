@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- A swipe over a location row no longer cancels itself. Handing the gesture from a row
+  to the content area is done with a `pointercancel`, and that event was bubbling: it
+  reached the content area, was read as the platform taking the pointer away, and our
+  own handler dropped the gesture and sprang the page back to rest. The event is now
+  addressed to the row alone, and only a trusted event may cancel a gesture. A self-test
+  that dispatched its pointer events on the content area could never see this -- the
+  code path only exists when the press lands on a control.
+- The bottom fade is a band again: a gradient at the bottom edge whose far end stops a
+  little above the top of the tab pill, its height taken from the pill's own geometry.
+  The six-point outline was more shape than the moment needed.
+- The session readout carries no plate: it sits on the page colour, and the partitions
+  between the numbers take the panel colour, because a line the colour of the surface it
+  is drawn on is not a line.
 - The drag no longer starts with a jump. The gesture is anchored at the finger the
   moment it becomes a swipe, instead of at the press: the finger had already travelled
   the slop by then, and carrying that into the page is what made the page snap ten

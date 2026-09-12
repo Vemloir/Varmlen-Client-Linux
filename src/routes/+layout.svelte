@@ -5,7 +5,6 @@
   import { goto } from "$app/navigation";
   import { NAV } from "$lib/nav";
   import { navPath } from "$lib/nav-path";
-  import { fadeGradient, fadePath } from "$lib/fade-path";
   import { swipeNav } from "$lib/swipe-nav";
   import { slideDirection } from "$lib/swipe";
   import { t } from "$lib/i18n.svelte";
@@ -92,50 +91,6 @@
   // Which way a new page arrives. Recorded while the path changes and cleared
   // when the animation is over, so a re-render cannot restart it.
   let slide = $state<"next" | "prev" | null>(null);
-  let contentEl: HTMLElement | undefined = $state();
-  let tabbarEl: HTMLElement | undefined = $state();
-  /** The fade at the bottom edge, drawn from the pill's measured box. */
-  let fade = $state({ d: "", from: 0, to: 0, color: "#000000" });
-
-  function measureFade(): void {
-    const content = contentEl;
-    const tabbar = tabbarEl;
-    if (!content || !tabbar) return;
-    const box = content.getBoundingClientRect();
-    const pill = tabbar.getBoundingClientRect();
-    const geometry = {
-      width: box.width,
-      height: box.height,
-      pillLeft: pill.left - box.left,
-      pillRight: pill.right - box.left,
-      pillTop: pill.top - box.top,
-      pillMid: pill.top - box.top + pill.height / 2,
-    };
-    const stops = fadeGradient(geometry);
-    fade = {
-      d: fadePath(geometry),
-      from: stops.from,
-      to: stops.to,
-      // The plate colour, resolved here rather than through a stylesheet rule on
-      // the gradient stops: an SVG gradient that silently fails to pick up a
-      // custom property paints nothing at all, and nothing is indistinguishable
-      // from a curve nobody asked about.
-      color: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(),
-    };
-  }
-
-  // The curve belongs to the pill, so it is measured rather than copied into a
-  // stylesheet: a resized window or a taller pill moves it by itself.
-  $effect(() => {
-    theme.current;
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => measureFade());
-    if (contentEl) observer.observe(contentEl);
-    if (tabbarEl) observer.observe(tabbarEl);
-    measureFade();
-    return () => observer.disconnect();
-  });
-
   /** The element the finger drags: the current page and its neighbour together.
    *  Read through a getter because the action is attached to the content area
    *  before this child exists. */
@@ -280,7 +235,6 @@
 
 <div class="app">
   <main
-    bind:this={contentEl}
     class="content"
     use:swipeNav={{
       path: () => navPath(),
@@ -317,25 +271,10 @@
          is a layer rather than a mask on the scroll container: a mask makes that
          container a stacking context, and every modal inside it then paints under
          the tab pill -- dimmed page, bright pill. -->
-    <svg class="edge-fade" aria-hidden="true">
-      <defs>
-        <linearGradient
-          id="varmlen-edge-fade"
-          gradientUnits="userSpaceOnUse"
-          x1="0"
-          y1={fade.from}
-          x2="0"
-          y2={fade.to}
-        >
-          <stop offset="0" stop-color={fade.color} stop-opacity="1" />
-          <stop offset="1" stop-color={fade.color} stop-opacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={fade.d} fill="url(#varmlen-edge-fade)" />
-    </svg>
+    <div class="edge-fade" aria-hidden="true"></div>
   </main>
 
-  <nav class="tabbar" bind:this={tabbarEl}>
+  <nav class="tabbar">
     {#each NAV as item}
       <a
         href={item.path}
@@ -372,13 +311,18 @@
 
   /* Every page is absolutely positioned inside this, so it is the one thing that
      can move for a tab change without asking the pages to cooperate. */
+  /* A band at the bottom edge that ends just above the tab pill, so a list leaves
+     the window in shade instead of on a cut. Its height is the pill's own geometry:
+     inset, height, and the lift past its top edge. */
   .edge-fade {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--fade-height);
     pointer-events: none;
     z-index: 3;
+    background: linear-gradient(to top, var(--bg) 45%, transparent);
   }
 
   .page-track {

@@ -61,6 +61,9 @@
      the last row hides under it for good. */
   --nav-height: 48px;
   --nav-inset: 10px;
+  /* The bottom fade ends this far above the pill's top edge. */
+  --fade-lift: 12px;
+  --fade-height: calc(var(--nav-inset) + var(--nav-height) + var(--fade-lift));
   /* The pill's box. The fade at the bottom edge is drawn from the measured
      element, not from these, but the tab bar and the pages' clearance both come
      from here. */

@@ -96,7 +96,11 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     const element = control;
     control = null;
     if (!element) return;
-    element.dispatchEvent(new PointerEvent("pointercancel", { bubbles: true }));
+    // Not bubbling: the hand-off is addressed to this control, and an event that
+    // reached the content area would be read as the platform taking the pointer
+    // away -- our own cancel handler would then drop the gesture and spring the
+    // page back, which is exactly what a swipe over a location row did.
+    element.dispatchEvent(new PointerEvent("pointercancel", { bubbles: false }));
     // Scoped to the control that was let go: a tap somewhere else, a moment
     // later, is a tap and not a leftover of this gesture.
     const swallow = (event: MouseEvent) => {
@@ -208,7 +212,9 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     if (wasDragging) move(0, "settle");
   };
 
-  const onCancel = () => {
+  const onCancel = (event: Event) => {
+    // Only the platform may take a gesture away from underneath it.
+    if (!event.isTrusted) return;
     if (pointerId === null) return;
     release();
     control = null;

@@ -1090,9 +1090,10 @@
     align-items: stretch;
     margin-top: 10px;
     border-radius: 999px;
-    /* The same idiom as the tab bar: a raised plate with the page showing through
-       the partitions. */
-    background: var(--bg-elev);
+    /* No plate at all: the numbers sit on the page, and the partitions between them
+       take the panel colour -- a line the colour of the surface it is drawn on is
+       not a line. */
+    background: var(--bg);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
     color: var(--text);
@@ -1111,7 +1112,7 @@
      decoration rather than as the line between two numbers. */
   .session-sep {
     width: 2px;
-    background: var(--bg);
+    background: var(--bg-elev);
   }
   .status-text[data-status="connected"] { color: var(--accent); }
   .status-text[data-status="connecting"] { color: var(--accent); }

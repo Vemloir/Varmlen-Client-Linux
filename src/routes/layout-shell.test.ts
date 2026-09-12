@@ -16,7 +16,7 @@ describe("shell: tabs by swipe, with the new page arriving from the side", () =>
   const css = layout.slice(layout.indexOf("<style>"));
 
   it("hands the content area to the swipe action", () => {
-    expect(shell).toMatch(/<main\s+bind:this=\{contentEl\}\s+class="content"\s+use:swipeNav=\{\{/s);
+    expect(shell).toMatch(/<main\s+class="content"\s+use:swipeNav=\{\{/s);
     // Not `page.url.pathname`: the origin Tauri serves from has no path at all.
     expect(shell).toMatch(/path: \(\) => navPath\(\),/);
     expect(shell).toMatch(/go: goTo,/);
@@ -114,26 +114,25 @@ describe("shell: the tab pill floats over the pages, in three segments", () => {
     expect(shell).toMatch(/position:\s*absolute;/);
   });
 
-  it("fades the pages out along the pill, without masking them", () => {
+  it("fades the pages out at the bottom edge, just past the pill", () => {
     const app = read("../app.css");
-    // The curve is drawn from the pill's measured box, not from numbers copied into
-    // a stylesheet.
-    expect(layout).toMatch(/bind:this=\{tabbarEl\}/);
-    expect(layout).toMatch(/const pill = tabbar\.getBoundingClientRect\(\);/);
-    expect(layout).toMatch(/d: fadePath\(geometry\),/);
-    // The plate colour is resolved in JS: an SVG gradient that misses a custom
-    // property paints nothing, and nothing looks like a curve nobody asked for.
-    expect(layout).toMatch(/getPropertyValue\("--bg"\)/);
-    expect(layout).toMatch(/stop-color=\{fade\.color\}/);
-    expect(layout).toMatch(/new ResizeObserver\(\(\) => measureFade\(\)\)/);
-    expect(layout).toMatch(/<path d=\{fade\.d\} fill="url\(#varmlen-edge-fade\)" \/>/);
-    expect(css).toMatch(/\.edge-fade\s*\{[^}]*pointer-events:\s*none;[^}]*z-index:\s*3;/s);
+    // A band, not a curve: it ends a little above the pill's top edge, and its
+    // height is the pill's own geometry.
+    expect(app).toMatch(/--fade-lift: 12px;/);
+    expect(app).toMatch(
+      /--fade-height:\s*calc\(var\(--nav-inset\) \+ var\(--nav-height\) \+ var\(--fade-lift\)\);/,
+    );
+    expect(css).toMatch(
+      /\.edge-fade\s*\{[^}]*background:\s*linear-gradient\(to top, var\(--bg\) 45%, transparent\);/s,
+    );
+    expect(css).toMatch(/\.edge-fade\s*\{[^}]*z-index:\s*3;/s);
     // A mask on the scroll container is what trapped every modal under the pill.
     expect(app).not.toMatch(/fade-y/);
     for (const page of ["./+page.svelte", "./split/+page.svelte", "./settings/+page.svelte"]) {
       expect(read(page)).not.toMatch(/fade-y/);
     }
   });
+
 });
 
 describe("shell: nothing in the interface is selectable", () => {
