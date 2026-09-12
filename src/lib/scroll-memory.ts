@@ -36,8 +36,13 @@ export function forgetAllScrolls(): void {
  * The offset is written on every scroll rather than only on teardown, because a
  * window closed mid-scroll never runs our destroy() and the position the user
  * stopped at is the one worth having.
+ *
+ * A path of null means "this scroller remembers nothing": an element that only stands
+ * in for another one, like a page shown next to the finger mid-swipe, has no reading
+ * position of its own and must not take one from the map.
  */
-export function persistScroll(node: HTMLElement, path: string) {
+export function persistScroll(node: HTMLElement, path: string | null) {
+  if (path === null) return { destroy() {} };
   const apply = () => {
     const top = savedScroll(path);
     if (top > 0) node.scrollTop = top;

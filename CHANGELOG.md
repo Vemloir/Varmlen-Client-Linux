@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+- Split tunnelling keeps its `Apps / Websites` pill where it is and moves the chosen
+  section under it. The pill is not pinned to a scroller -- it simply is not inside one:
+  the page is a column of chrome over two halves, and each half scrolls on its own. That
+  is also what fixes the section you were not looking at: with one scroller for both, a
+  long applications list carried the short websites list off the top of it, and the swipe
+  that switched sections arrived at a blank page. Each half remembers its own reading
+  position, and a page standing in for a half during a swipe remembers nothing -- it has
+  not been read, and writing its position back would have given the real half a place it
+  had never been.
+- A swipe between the two halves moves the halves, not the window. The shell owns the
+  pointer and the page owns its sections, so the sideways finger is handed over as a
+  number: while it is down the halves sit exactly where it puts them, and it is released
+  in the same frame the half is committed, so the transition continues from there instead
+  of snapping back. Which places are one page is decided by the route they live on, so
+  the neighbour that is a real neighbour still slides in the way it did.
+- The transform lives on each half rather than on the pair. With it on the pair, WebKit
+  composited the pair and painted nothing at all for the scrollable halves inside it:
+  geometry right, opacity right, children present, window blank. A scroller may be
+  transformed -- a tab swipe moves one every time -- and a scroller inside a transformed
+  element may not.
+- The scrollbar gets out of the way during a swipe, fading out in 90ms and back the
+  moment the gesture is over. It cannot be faded where it lives: WebKit does not animate
+  the properties of a scrollbar pseudo-element, and the rule written the obvious way was
+  not in the built stylesheet at all, because Svelte reads a class that only appears at
+  runtime as one the component never uses and drops the selector. The gutter is covered
+  by a real strip that fades, over padding no content is ever drawn in. Measured in the
+  running app: the pixel the thumb sits on reads 48 at rest and 26 under a drag.
 - The swipe strip is four places long: Home, applications, websites, Settings. The tab
   bar still has three segments and the router still knows three paths, because the split
   page is two places wide and dragging between them moves the reader whether or not the

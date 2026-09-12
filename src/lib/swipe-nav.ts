@@ -74,6 +74,13 @@ export interface SwipeNavOptions {
   /** The strip, read at the moment of the gesture: the split page is two places
    *  wide, and whether the applications one of them exists depends on the VPN mode. */
   order?: () => readonly string[];
+  /** Which page a place belongs to. Two places on one page are two halves of it, and
+   *  those do not travel through the window -- see `panes`. */
+  route?: (zone: string) => string;
+  /** The sideways finger, for a page that carries two halves: the pixels while it is
+   *  down, and null when it is gone, which is when the page's own transition takes
+   *  over from exactly there. */
+  panes?: (offset: number | null) => void;
 }
 
 export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
@@ -92,6 +99,8 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
   let committing = false;
   /** The control the finger landed on, if any, until the gesture takes it away. */
   let control: HTMLElement | null = null;
+  /** Whether the finger is currently moving halves of this page rather than pages. */
+  let paneGesture = false;
 
   const track = () => options.track?.() ?? null;
 
@@ -100,6 +109,17 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     if (to === previewTo) return;
     previewTo = to;
     options.preview?.(to);
+  };
+
+  /** Two places, one page: the neighbour is a half of what is already on screen. */
+  const sameRoute = (zone: string) =>
+    options.route !== undefined && options.route(zone) === options.route(options.path());
+
+  /** Hand the finger back to the page and let its own transition finish the pan. */
+  const endPaneGesture = () => {
+    if (!paneGesture) return;
+    paneGesture = false;
+    options.panes?.(null);
   };
 
   const move = (dx: number, transition: "settle" | "none" | "catch" = "none") => {
@@ -189,6 +209,19 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     dragging = false;
   };
 
+  /**
+   * The other half of the same page: the window does not move for it, because the
+   * pill over there is chrome and travels with the window. The finger is handed to
+   * the page instead, over the same distance the wall would allow a page.
+   */
+  const movePanes = (dx: number) => {
+    paneGesture = true;
+    showPreview(null);
+    const span = node.getBoundingClientRect().width;
+    offset = pageTravel(dx, span, WALL_LIMIT_PX);
+    options.panes?.(offset);
+  };
+
   const onMove = (event: PointerEvent) => {
     // Only the pointer that started this gesture. A mouse moving while a finger is
     // down, or a second finger, would otherwise move the page from a start point it
@@ -235,8 +268,15 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     const neighbour = neighbourPath(options.path(), direction, order());
     // Whether this frame arrives late is decided before the clock is moved.
     const stalled = event.timeStamp - lastMoveAt > STALL_MS;
-    showPreview(neighbour);
     lastMoveAt = event.timeStamp;
+    if (neighbour && sameRoute(neighbour)) {
+      movePanes(dx);
+      return;
+    }
+    // The finger turned round and is heading for a different page after all: the
+    // halves stop where they are and the window takes over.
+    endPaneGesture();
+    showPreview(neighbour);
     // The page follows the finger one for one where there is a page to follow, and
     // meets the wall where there is none.
     const span = neighbour ? node.getBoundingClientRect().width : 0;
@@ -258,6 +298,15 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       node.getBoundingClientRect().width,
     );
     const target = direction ? neighbourPath(options.path(), direction, order()) : null;
+    if (target && wasDragging && sameRoute(target)) {
+      // Nothing to land: the window never moved. Let go of the finger, and the
+      // sections travel the rest of the way under their own transition.
+      endPaneGesture();
+      offset = 0;
+      void options.go(target);
+      return;
+    }
+    endPaneGesture();
     if (target && wasDragging) {
       void commit(target, direction === "next" ? "next" : "prev");
       return;
@@ -280,6 +329,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     release();
     control = null;
     showPreview(null);
+    endPaneGesture();
     move(0, "settle");
   };
 

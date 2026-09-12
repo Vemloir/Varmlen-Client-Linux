@@ -136,9 +136,34 @@ describe("the neighbour under the finger", () => {
   });
 
   it("keeps the neighbour's own reading position, not the current tab's", () => {
-    for (const page of [home, split, settings]) {
-      expect(page).toMatch(/use:persistScroll=\{preview \|\| (navPath\(\)|zoneOf\(navPath\(\), split\.tab\))\}/);
+    for (const page of [home, settings]) {
+      expect(page).toMatch(/use:persistScroll=\{preview \|\| navPath\(\)\}/);
     }
+    // Split is two places on one route, so each half remembers its own offset, and a
+    // page standing in for one of them remembers nothing -- it has never been read.
+    expect(split).toMatch(/use:persistScroll=\{preview \? null : SPLIT_APPS\}/);
+    expect(split).toMatch(/use:persistScroll=\{preview \? null : SPLIT_SITES\}/);
+  });
+
+  it("moves the halves of a page instead of sliding the window", () => {
+    // Which page a place belongs to is the difference between a neighbour and a half.
+    expect(source).toMatch(/route\?: \(zone: string\) => string;/);
+    expect(source).toMatch(/panes\?: \(offset: number \| null\) => void;/);
+    expect(source).toMatch(
+      /options\.route !== undefined && options\.route\(zone\) === options\.route\(options\.path\(\)\)/,
+    );
+    // A half is not a neighbour: nothing is mounted beside it, and the track is not
+    // touched -- the pill over there is chrome and travels with the window.
+    expect(source).toMatch(/const movePanes = \(dx: number\) => \{[\s\S]*?showPreview\(null\);[\s\S]*?options\.panes\?\.\(offset\);/);
+    expect(source).toMatch(/if \(neighbour && sameRoute\(neighbour\)\) \{\s*movePanes\(dx\);\s*return;/);
+    // The finger is handed back at release, in the same frame the half is committed, so
+    // the page's own transition continues from where the finger left it.
+    expect(source).toMatch(/if \(target && wasDragging && sameRoute\(target\)\) \{[\s\S]*?endPaneGesture\(\);[\s\S]*?void options\.go\(target\);/);
+    // Turning round towards a different page lets the halves go where they stand.
+    expect(source).toMatch(/endPaneGesture\(\);\s*showPreview\(neighbour\);/);
+    // And the shell hands the layout the same offset the page reads.
+    expect(layout).toMatch(/panes: \(offset\) => \(offset === null \? paneDrag\.release\(\) : paneDrag\.drag\(offset\)\),/);
+    expect(layout).toMatch(/route: routeOf,/);
   });
 
   it("does not let the neighbour do the live page's work", () => {

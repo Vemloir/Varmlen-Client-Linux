@@ -2,6 +2,8 @@
   import { navPath } from "$lib/nav-path";
   import { tabOf, zoneOf } from "$lib/nav-zones";
   import { persistScroll } from "$lib/scroll-memory";
+  import { paneDrag } from "$lib/pane-drag.svelte";
+  import { SPLIT_APPS, SPLIT_SITES } from "$lib/nav-zones";
   import { onDestroy, tick } from "svelte";
   import { split, type Mode } from "$lib/split.svelte";
   import { settings } from "$lib/settings.svelte";
@@ -203,19 +205,15 @@
     showAddApp = false;
   }
 
-  // The mode card reflects the ACTIVE tab — apps and sites have independent
-  // modes, so switching tabs shows (and edits) that category's mode + count.
-  const activeMode = $derived(tab === "apps" ? split.appsMode : split.sitesMode);
-  const enabledCount = $derived(
-    tab === "apps"
-      ? split.apps.filter((a) => a.enabled).length
-      : split.sites.filter((s) => s.enabled).length,
-  );
-  const modeDescription = $derived(
-    activeMode === "selective" ? t("split.mode.selective") : t("split.mode.general"),
-  );
-  function setActiveMode(m: Mode): void {
-    if (tab === "apps") split.setAppsMode(m);
+  /* Both halves are on screen at once and the pair slides between them, so the mode
+     card is no longer "the active one": each half carries its own, because the two
+     categories have independent modes and independent counts. */
+  const appsMode = $derived(split.appsMode);
+  const sitesMode = $derived(split.sitesMode);
+  const appsCount = $derived(split.apps.filter((a) => a.enabled).length);
+  const sitesCount = $derived(split.sites.filter((s) => s.enabled).length);
+  function setActiveMode(kind: "apps" | "websites", m: Mode): void {
+    if (kind === "apps") split.setAppsMode(m);
     else split.setSitesMode(m);
   }
 </script>
@@ -231,11 +229,36 @@
   {/if}
 {/snippet}
 
+{#snippet modeCard(kind: "apps" | "websites")}
+  {@const mode = kind === "apps" ? appsMode : sitesMode}
+  {@const count = kind === "apps" ? appsCount : sitesCount}
+  <div class="card mode">
+    <div class="mode-top">
+      <div class="mode-label">
+        <div class="mode-title">{t("split.mode")}</div>
+        <div class="muted small">{t("split.active", { n: count })}</div>
+      </div>
+      <Dropdown
+        value={mode}
+        options={modeOptions}
+        onChange={(v) => setActiveMode(kind, v as Mode)}
+        ariaLabel={t("split.mode")}
+      />
+    </div>
+    <p class="mode-note dim">
+      {mode === "selective" ? t("split.mode.selective") : t("split.mode.general")}
+    </p>
+  </div>
+{/snippet}
+
 <header class="topbar">
   <h1>{t("split.title")}</h1>
 </header>
 
-<div class="page" use:persistScroll={preview || zoneOf(navPath(), split.tab)}>
+<!-- The page itself does not scroll. Each half is its own scroller, so the section you
+     left keeps the position you left it at, and the pill above them stays where it is
+     without being pinned to anything. -->
+<div class="page">
 
   <div class="segmented" role="tablist" bind:this={segEl}>
     <span class="seg-thumb" style={thumbStyle} aria-hidden="true"></span>
@@ -263,77 +286,90 @@
     </div>
   {/if}
 
-  <div class="card mode">
-    <div class="mode-top">
-      <div class="mode-label">
-        <div class="mode-title">{t("split.mode")}</div>
-        <div class="muted small">{t("split.active", { n: enabledCount })}</div>
-      </div>
-      <Dropdown
-        value={activeMode}
-        options={modeOptions}
-        onChange={(v) => setActiveMode(v as Mode)}
-        ariaLabel={t("split.mode")}
-      />
-    </div>
-    <p class="mode-note dim">{modeDescription}</p>
-  </div>
+  <!-- The two halves of split tunnelling stand side by side and the pair slides under
+       the pill, so the section you chose travels instead of being replaced. The half
+       off screen is inert: it cannot be clicked, focused or read out.
 
-  {#if tab === "apps"}
-    <button class="btn panel-add" onclick={openAddApp}>{t("split.addApp")}</button>
+       `--idx` is which half is showing, `--pan` is the finger, handed over by the
+       shell for a swipe between the two: while it is down the halves sit where the
+       finger puts them, and it is released in the same frame the half is committed, so
+       the transition continues from there instead of snapping. They are set here and
+       read by each half, because the halves are what move. -->
+  <div
+    class="panes"
+    class:panes--dragging={paneDrag.live}
+    style={`--idx: ${tab === "apps" ? 0 : 1}; --pan: ${paneDrag.offset}px`}
+  >
+    <section
+      class="pane"
+      inert={tab !== "apps"}
+      aria-hidden={tab !== "apps"}
+      use:persistScroll={preview ? null : SPLIT_APPS}
+    >
+      {@render modeCard("apps")}
+      <button class="btn panel-add" onclick={openAddApp}>{t("split.addApp")}</button>
 
-    {#if split.apps.length === 0}
-      <div class="empty-state">
-        <div class="empty-title">{t("split.noAppsTitle")}</div>
-        <div class="muted">{t("split.noAppsHint")}</div>
-      </div>
-    {:else}
-      <div class="list">
-        {#each split.apps as a (a.id)}
-          <div class="list-row">
-            {@render appIcon(a.icon)}
-            <div class="app-text">
-              <div class="app-name">{a.name}</div>
-              <div class="app-id dim">{a.id}</div>
+      {#if split.apps.length === 0}
+        <div class="empty-state">
+          <div class="empty-title">{t("split.noAppsTitle")}</div>
+          <div class="muted">{t("split.noAppsHint")}</div>
+        </div>
+      {:else}
+        <div class="list">
+          {#each split.apps as a (a.id)}
+            <div class="list-row">
+              {@render appIcon(a.icon)}
+              <div class="app-text">
+                <div class="app-name">{a.name}</div>
+                <div class="app-id dim">{a.id}</div>
+              </div>
+              <button class="btn-ghost trash" onclick={() => split.removeApp(a.id)} aria-label="Remove">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+              </button>
+              <label class="switch">
+                <input type="checkbox" checked={a.enabled} onchange={() => split.toggleApp(a.id)} />
+                <span class="slider"></span>
+              </label>
             </div>
-            <button class="btn-ghost trash" onclick={() => split.removeApp(a.id)} aria-label="Remove">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-            </button>
-            <label class="switch">
-              <input type="checkbox" checked={a.enabled} onchange={() => split.toggleApp(a.id)} />
-              <span class="slider"></span>
-            </label>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  {:else}
-    <button class="btn panel-add" onclick={openAddSite}>{t("split.addSites")}</button>
+          {/each}
+        </div>
+      {/if}
+    </section>
 
-    {#if split.sites.length === 0}
-      <div class="empty-state">
-        <div class="empty-title">{t("split.noSitesTitle")}</div>
-        <div class="muted">{t("split.noSitesHint")}</div>
-      </div>
-    {:else}
-      <div class="list">
-        {#each split.sites as s (s.id)}
-          <!-- The meaning of the pattern is not a caption: the row says what is
-               routed, and what the pattern covers is there for whoever asks. -->
-          <div class="list-row" title={t(siteKindLabelKey(siteRuleKind(s.pattern)))}>
-            <span class="pattern">{s.pattern}</span>
-            <button class="btn-ghost trash" onclick={() => split.removeSite(s.id)} aria-label="Remove">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-            </button>
-            <label class="switch">
-              <input type="checkbox" checked={s.enabled} onchange={() => split.toggleSite(s.id)} />
-              <span class="slider"></span>
-            </label>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  {/if}
+    <section
+      class="pane"
+      inert={tab === "apps"}
+      aria-hidden={tab === "apps"}
+      use:persistScroll={preview ? null : SPLIT_SITES}
+    >
+      {@render modeCard("websites")}
+      <button class="btn panel-add" onclick={openAddSite}>{t("split.addSites")}</button>
+
+      {#if split.sites.length === 0}
+        <div class="empty-state">
+          <div class="empty-title">{t("split.noSitesTitle")}</div>
+          <div class="muted">{t("split.noSitesHint")}</div>
+        </div>
+      {:else}
+        <div class="list">
+          {#each split.sites as s (s.id)}
+            <!-- The meaning of the pattern is not a caption: the row says what is
+                 routed, and what the pattern covers is there for whoever asks. -->
+            <div class="list-row" title={t(siteKindLabelKey(siteRuleKind(s.pattern)))}>
+              <span class="pattern">{s.pattern}</span>
+              <button class="btn-ghost trash" onclick={() => split.removeSite(s.id)} aria-label="Remove">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+              </button>
+              <label class="switch">
+                <input type="checkbox" checked={s.enabled} onchange={() => split.toggleSite(s.id)} />
+                <span class="slider"></span>
+              </label>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </section>
+  </div>
 </div>
 
 {#if showAddApp}
@@ -457,30 +493,70 @@
     font-weight: 700;
   }
 
+  /* The page is a column of chrome over the halves, not a scroller: the pill and the
+     notice above the halves stay put because nothing scrolls underneath them, which is
+     what a pinned control actually needs. */
   .page {
     position: absolute;
     inset: 56px 0 0 0;
-    /* See +page.svelte for the rationale on always-on scrollbar + mirrored
-       padding instead of `scrollbar-gutter: stable both-edges`. */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Tabs span the full width like every other panel. */
+  /* The pill is chrome, so it stays when the content moves. It is not pinned to the
+     scroller -- it is simply not inside one. */
+  .segmented {
+    align-self: stretch;
+    display: flex;
+    flex-shrink: 0;
+    padding: 12px 14px 12px 20px;
+  }
+  .split-unavailable {
+    margin: 0 14px 0 20px;
+    flex-shrink: 0;
+  }
+  /* The two halves, side by side, sliding as one. Only the transform moves, and the
+     half that arrives is the real thing -- same components, same stores -- because a
+     picture of it would go stale the moment a row changed. */
+  .panes {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    overflow: hidden;
+  }
+  /* Each half scrolls on its own, and so keeps its own reading position -- see
+     +page.svelte for the always-on scrollbar and the mirrored padding instead of
+     `scrollbar-gutter: stable both-edges`. The half outside the right edge must not
+     answer with a horizontal scrollbar of its own. */
+  .pane {
+    flex: 0 0 100%;
+    min-width: 0;
+    /* The transform lives on the half, not on the pair. WebKit is told to composite
+       the pair by a transform on it, and then paints nothing for the scrollable halves
+       inside it -- measured: geometry and opacity correct, window blank. A scroller may
+       be transformed (a tab swipe moves one every time); a scroller inside a
+       transformed element may not. */
+    transform: translateX(calc(-100% * var(--idx, 0) + var(--pan, 0px)));
+    transition: transform var(--transition);
     overflow-y: scroll;
-    /* A little air above the first row; the shell fades the bottom edge, not us. */
-    padding: 12px 14px calc(24px + var(--nav-clearance)) 20px;
+    overflow-x: hidden;
+    padding: 0 14px calc(24px + var(--nav-clearance)) 20px;
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
-  /* Keep the children at their natural height so a long apps/sites list makes
-     the page overflow and scroll. Without this, `.list` (overflow:hidden →
-     flex min-height:0) gets shrunk by the flex column and clips its rows
-     instead of scrolling. */
-  .page > :global(*) {
+  /* Keep the children at their natural height so a long apps/sites list makes the half
+     overflow and scroll. Without this, `.list` (overflow:hidden → flex min-height:0)
+     gets shrunk by the flex column and clips its rows instead of scrolling. */
+  .pane > :global(*) {
     flex-shrink: 0;
   }
-
-  /* Tabs span the full width like every other panel. */
-  .segmented {
-    align-self: stretch;
-    display: flex;
+  /* Under the finger the halves are where the finger puts them; the transition is for
+     the way they settle once it is gone. */
+  .panes--dragging .pane {
+    transition: none;
   }
   .segmented :global(button) {
     flex: 1;

@@ -135,6 +135,45 @@ describe("shell: the tab pill floats over the pages, in three segments", () => {
     }
   });
 
+  it("leaves the split pill out of the scrolling and slides the halves instead", () => {
+    const split = read("./split/+page.svelte");
+    const css = split.slice(split.indexOf("<style>"));
+    // A pinned control is a control that is not inside the thing that scrolls. Pinning
+    // it to the scroller with sticky painted the rows through it.
+    expect(css).toMatch(/\.page \{[^}]*display: flex;[^}]*overflow: hidden;/s);
+    expect(css).not.toMatch(/\.segmented \{[^}]*position: sticky;/s);
+    expect(css).toMatch(/\.segmented \{[^}]*flex-shrink: 0;/s);
+    // The chosen half travels, and travels with the finger where the shell has it. The
+    // transform is on the half: a transform on the pair makes WebKit composite it and
+    // paint nothing for the scrollable halves inside -- geometry right, window blank.
+    expect(css).toMatch(
+      /\.pane \{[^}]*transform: translateX\(calc\(-100% \* var\(--idx, 0\) \+ var\(--pan, 0px\)\)\);[^}]*transition: transform/s,
+    );
+    expect(css).toMatch(/\.panes--dragging \.pane \{[^}]*transition: none;/s);
+    expect(css).not.toMatch(/\.panes \{[^}]*transform:/s);
+    // Each half scrolls on its own, so the one you left keeps its position and the
+    // taller one cannot carry the other off the screen.
+    expect(css).toMatch(/\.pane \{[^}]*flex: 0 0 100%;[^}]*overflow-y: scroll;[^}]*overflow-x: hidden;/s);
+    expect(css).toMatch(/\.pane \{[^}]*padding: 0 14px calc\(24px \+ var\(--nav-clearance\)\) 20px;/s);
+  });
+
+});
+
+describe("split tunnelling: one scroller, two halves", () => {
+  const source = read("./split/+page.svelte");
+
+  it("keeps the half off screen unreachable", () => {
+    // Both halves are mounted so the pair can slide; the one the user is not on must
+    // not answer clicks, focus or a screen reader.
+    expect(source).toMatch(/class="pane"[^>]*inert=\{tab !== "apps"\}\s*aria-hidden=\{tab !== "apps"\}/s);
+    expect(source).toMatch(/class="pane"[^>]*inert=\{tab === "apps"\}\s*aria-hidden=\{tab === "apps"\}/s);
+  });
+
+  it("carries one mode card per half, because the categories are independent", () => {
+    expect(source).toMatch(/{@render modeCard\("apps"\)}/);
+    expect(source).toMatch(/{@render modeCard\("websites"\)}/);
+    expect(source).toMatch(/function setActiveMode\(kind: "apps" \| "websites", m: Mode\)/);
+  });
 });
 
 describe("shell: nothing in the interface is selectable", () => {
@@ -157,9 +196,10 @@ describe("shell: each tab keeps the position the reader stopped at", () => {
   for (const page of ["./+page.svelte", "./split/+page.svelte", "./settings/+page.svelte"]) {
     it(`${page} restores its own offset`, () => {
       const source = read(page);
-      // Keyed by the live path, or by the path a preview is standing in for.
+      // Keyed by the live path, or by the path a preview is standing in for. Split
+      // keeps one memory per half; a preview stands in for a page it has not read.
       expect(source).toMatch(
-        /use:persistScroll=\{preview \|\| (navPath\(\)|zoneOf\(navPath\(\), split\.tab\))\}/,
+        /use:persistScroll=\{preview \|\| navPath\(\)|preview \? null : SPLIT_(APPS|SITES)\}/,
       );
       expect(source).toMatch(/import \{ persistScroll \} from "\$lib\/scroll-memory"/);
     });

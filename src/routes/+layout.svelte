@@ -6,6 +6,7 @@
   import { NAV } from "$lib/nav";
   import { navPath } from "$lib/nav-path";
   import { routeOf, tabOf, zoneOf, zoneOrder } from "$lib/nav-zones";
+  import { paneDrag } from "$lib/pane-drag.svelte";
   import { appSplitAvailable } from "$lib/split-availability";
   import { swipeNav } from "$lib/swipe-nav";
   import { slideDirection } from "$lib/swipe";
@@ -251,6 +252,10 @@
       path: () => zoneOf(navPath(), split.tab),
       order: () => zoneOrder(appsAvailable),
       go: goToZone,
+      route: routeOf,
+      // Split tunnelling is one route with two sections: a swipe between them moves
+      // the sections, not the window, because the pill above them is chrome.
+      panes: (offset) => (offset === null ? paneDrag.release() : paneDrag.drag(offset)),
       track: () => trackEl ?? null,
       preview: setPreview,
     }}
@@ -284,6 +289,11 @@
          container a stacking context, and every modal inside it then paints under
          the tab pill -- dimmed page, bright pill. -->
     <div class="edge-fade" aria-hidden="true"></div>
+    <!-- The scrollbar goes out of the way while a swipe is in progress. It cannot be
+         faded where it lives: WebKit does not animate the properties of a scrollbar
+         pseudo-element, so the gutter is covered by a real strip that fades, over the
+         padding no content is ever drawn in. -->
+    <div class="scroll-curtain" aria-hidden="true"></div>
   </main>
 
   <nav class="tabbar">
@@ -321,8 +331,26 @@
     overflow: hidden;
   }
 
-  /* Every page is absolutely positioned inside this, so it is the one thing that
-     can move for a tab change without asking the pages to cooperate. */
+  .scroll-curtain {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    background: var(--bg);
+    opacity: 0;
+    transition: opacity 90ms linear;
+    pointer-events: none;
+    z-index: 4;
+  }
+  /* `:global`, because the class is put on the element at runtime by the swipe
+     action: written the obvious way, Svelte reads the class as one this component
+     never uses and drops the rule from the stylesheet entirely -- measured, the rule
+     was simply not in the built CSS. */
+  :global(.swiping) .scroll-curtain {
+    opacity: 1;
+  }
+
   /* A band at the bottom edge that ends just above the tab pill, so a list leaves
      the window in shade instead of on a cut. Its height is the pill's own geometry:
      inset, height, and the lift past its top edge. */
@@ -337,6 +365,8 @@
     background: linear-gradient(to top, var(--bg) 45%, transparent);
   }
 
+  /* Every page is absolutely positioned inside this, so it is the one thing that
+     can move for a tab change without asking the pages to cooperate. */
   .page-track {
     position: absolute;
     inset: 0;

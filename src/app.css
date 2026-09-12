@@ -186,12 +186,6 @@ a {
 ::-webkit-scrollbar-thumb {
   background-color: var(--border);
   border-radius: 3px;
-  transition: background-color 90ms linear;
-}
-/* Under a tab swipe the thumb gets out of the way, and comes back as soon as the
-   page has landed. Fast, because it is not the thing being read. */
-.swiping ::-webkit-scrollbar-thumb {
-  background-color: transparent;
 }
 /* Touch devices (Android): no always-on scrollbar strip. */
 @media (pointer: coarse) {
