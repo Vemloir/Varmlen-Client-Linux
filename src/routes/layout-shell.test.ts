@@ -27,7 +27,7 @@ describe("shell: tabs by swipe, with the new page arriving from the side", () =>
     expect(action).toMatch(/element\.style\.transform = /);
     // Past the first and the last tab the page still moves, but each pixel of
     // finger buys less of it, and it never reaches the limit.
-    expect(action).toMatch(/wallOffset\(dx, WALL_LIMIT_PX\)/);
+    expect(action).toMatch(/pageTravel\(dx, span, WALL_LIMIT_PX\)/);
     // And the layout hands it the element to move.
     expect(layout).toMatch(/track: \(\) => trackEl/);
     expect(layout).toMatch(/bind:this=\{trackEl\}/);

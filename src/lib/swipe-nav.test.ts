@@ -24,7 +24,8 @@ describe("the neighbour under the finger", () => {
 
   it("mounts the neighbour the gesture is heading for", () => {
     expect(source).toMatch(/preview\?: \(path: string \| null\) => void;/);
-    expect(source).toMatch(/showPreview\(neighbourPath\(options\.path\(\), direction, order\)\);/);
+    expect(source).toMatch(/const neighbour = neighbourPath\(options\.path\(\), direction, order\);/);
+    expect(source).toMatch(/showPreview\(neighbour\);/);
     expect(layout).toMatch(/preview: setPreview,/);
     expect(layout).toMatch(/<HomePage preview=\{preview\.path\} \/>/);
     expect(layout).toMatch(/<SplitPage preview=\{preview\.path\} \/>/);
@@ -35,7 +36,10 @@ describe("the neighbour under the finger", () => {
     // The end of the strip does not lack resistance -- it lacks the switch. One
     // physics for both means a drag in the middle cannot be pulled further than
     // the page is ever willing to travel.
-    expect(source).toMatch(/offset = wallOffset\(dx, WALL_LIMIT_PX\);\s*move\(offset, "none"\);/);
+    // 1:1 under the finger, wall only where the strip runs out.
+    expect(source).toMatch(/const span = neighbour \? node\.getBoundingClientRect\(\)\.width : 0;/);
+    expect(source).toMatch(/offset = pageTravel\(dx, span, WALL_LIMIT_PX\);/);
+    expect(source).toMatch(/move\(offset, "none"\);/);
     expect(source).not.toMatch(/dragOffset/);
   });
 

@@ -1,47 +1,62 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  COMMIT_FRACTION,
+  COMMIT_VELOCITY,
+  FLING_MIN_PX,
   SWIPE_AXIS_RATIO,
-  SWIPE_MAX_MS,
-  SWIPE_MIN_X,
   neighbourPath,
+  pageTravel,
   slideDirection,
   swipeDirection,
+  velocityOver,
   wallOffset,
 } from "./swipe";
 
 const TABS = ["/", "/split", "/settings"] as const;
 
 /**
- * A swipe has to win against two neighbours: a tap that drifted, and a scroll
- * that wobbled sideways. Both are more common than a deliberate flick, so the
- * rule is "clearly sideways, clearly short, clearly far".
+ * A swipe has to win against two neighbours: a tap that drifted, and a scroll that
+ * wobbled sideways. The decision is the one a pager makes -- far enough, or still
+ * moving -- because that is the rule that lets a slow deliberate drag and a short
+ * flick both count without letting a list scroll count.
  */
 describe("swipe between tabs", () => {
-  it("takes a clear horizontal flick in either direction", () => {
-    expect(swipeDirection(-SWIPE_MIN_X, 0, 200)).toBe("next");
-    expect(swipeDirection(SWIPE_MIN_X, 0, 200)).toBe("prev");
-    expect(swipeDirection(-400, -20, 400)).toBe("next");
+  const W = 440;
+
+  it("switches when the page is dragged past the line", () => {
+    expect(swipeDirection(-W * COMMIT_FRACTION, 0, 0, W)).toBe("next");
+    expect(swipeDirection(W * COMMIT_FRACTION, 0, 0, W)).toBe("prev");
+    // Slow is not the same as unwilling: no clock in the rule.
+    expect(swipeDirection(-300, -20, 0.01, W)).toBe("next");
   });
 
-  it("leaves a short drag alone", () => {
-    expect(swipeDirection(-(SWIPE_MIN_X - 1), 0, 100)).toBe(null);
-    expect(swipeDirection(0, 0, 100)).toBe(null);
+  it("switches on a flick that never reached the line", () => {
+    expect(swipeDirection(-60, 0, -1.2, W)).toBe("next");
+    expect(swipeDirection(60, 0, 1.2, W)).toBe("prev");
+  });
+
+  it("leaves a slow short drag alone", () => {
+    expect(swipeDirection(-60, 0, 0, W)).toBe(null);
+    expect(swipeDirection(0, 0, 0, W)).toBe(null);
+  });
+
+  it("lets the page decide once it is dragged past the line", () => {
+    // The finger came back through the page and was still moving right at release,
+    // but 200 of 440 pixels are under the reader's eye: it switches.
+    expect(swipeDirection(-200, 0, 0.9, W)).toBe("next");
+    // Short of the line, the flick has to agree with the drag.
+    expect(swipeDirection(-60, 0, 0.9, W)).toBe(null);
+  });
+
+  it("does not read a twitch as a flick", () => {
+    expect(swipeDirection(-(FLING_MIN_PX - 1), 0, -3, W)).toBe(null);
+    expect(swipeDirection(-FLING_MIN_PX, 0, COMMIT_VELOCITY - 0.01, W)).toBe(null);
   });
 
   it("leaves a scroll that wobbled sideways alone", () => {
-    // Twice as much horizontal as vertical is the price; a flick this slanted is
-    // the user reading a list, not changing tabs.
-    expect(swipeDirection(SWIPE_MIN_X * SWIPE_AXIS_RATIO, SWIPE_MIN_X + 1, 200)).toBe(null);
-    expect(swipeDirection(SWIPE_MIN_X, SWIPE_MIN_X, 200)).toBe(null);
-    expect(swipeDirection(-200, -150, 200)).toBe(null);
-  });
-
-  it("leaves a long press that drifted alone", () => {
-    // The location menu opens on a hold. A hold that slid sideways must not
-    // change the page underneath the menu it just summoned.
-    expect(swipeDirection(-300, 0, SWIPE_MAX_MS + 1)).toBe(null);
-    expect(swipeDirection(-300, 0, SWIPE_MAX_MS)).toBe("next");
+    expect(swipeDirection(W, W * SWIPE_AXIS_RATIO - 1, -2, W)).toBe(null);
+    expect(swipeDirection(-200, -150, -2, W)).toBe(null);
   });
 
   it("walks one tab either way and stops at the ends", () => {
@@ -79,5 +94,37 @@ describe("swipe between tabs", () => {
     expect(slideDirection("/settings", "/", TABS)).toBe("prev");
     expect(slideDirection("/split", "/split", TABS)).toBe(null);
     expect(slideDirection("/", "/unknown", TABS)).toBe(null);
+  });
+});
+
+/**
+ * What the page does while the finger is down: it follows it, and it meets a wall
+ * only where the strip runs out.
+ */
+describe("page travel under the finger", () => {
+  const LIMIT = 96;
+  const W = 440;
+
+  it("follows the finger one for one where there is a page to follow", () => {
+    expect(pageTravel(-120, W, LIMIT)).toBe(-120);
+    expect(pageTravel(W, W, LIMIT)).toBe(W);
+  });
+
+  it("meets the wall from the first pixel at the end of the strip", () => {
+    expect(pageTravel(0, 0, LIMIT)).toBe(0);
+    expect(pageTravel(-120, 0, LIMIT)).toBeCloseTo(-wallOffset(120, LIMIT));
+    expect(pageTravel(-4000, 0, LIMIT)).toBeGreaterThan(-LIMIT);
+  });
+
+  it("meets the wall again past a full page", () => {
+    expect(pageTravel(W + 120, W, LIMIT)).toBeCloseTo(-(0) - (W + wallOffset(120, LIMIT)) * -1);
+    expect(pageTravel(W + 4000, W, LIMIT)).toBeLessThan(W + LIMIT);
+  });
+
+  it("slows down the further it is pulled, and mirrors either way", () => {
+    const rate = (from: number, to: number) =>
+      (pageTravel(to, 0, LIMIT) - pageTravel(from, 0, LIMIT)) / (to - from);
+    expect(rate(0, 6)).toBeGreaterThan(rate(300, 306));
+    expect(pageTravel(-240, 0, LIMIT)).toBe(-pageTravel(240, 0, LIMIT));
   });
 });

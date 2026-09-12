@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- The swipe follows the finger again. Two hundred pixels of finger were buying seventy
+  of page, because the growing resistance was applied in the middle of the strip as
+  well as at its end; that is what made the gesture feel like a screen that was not
+  listening. The page now answers one for one wherever there is a page to follow, and
+  meets the wall only where the strip runs out -- the end of the strip does not lack
+  resistance, it lacks the switch.
+- The release is decided the way a pager decides it: either the page is dragged past
+  forty per cent of the window, or the finger is still moving that way at over half a
+  pixel per millisecond. A slow deliberate drag and a short flick both count; a slow
+  short drag in a list counts as nothing. The clock is gone from the rule -- a drag
+  taken slowly across half the window is deliberate, and the page has been under the
+  finger the whole time to say so.
 - A swipe over a location row no longer cancels itself. Handing the gesture from a row
   to the content area is done with a `pointercancel`, and that event was bubbling: it
   reached the content area, was read as the platform taking the pointer away, and our

@@ -1,8 +1,9 @@
 import { NAV } from "$lib/nav";
 import {
   neighbourPath,
+  pageTravel,
   swipeDirection,
-  wallOffset,
+  velocityOver,
   type SwipeDirection,
 } from "$lib/swipe";
 
@@ -32,6 +33,8 @@ const DRAG_START_PX = 10;
 /** How far the page will ever slide at the end of the list, approached but not
  *  reached: see wallOffset(). */
 const WALL_LIMIT_PX = 96;
+/** The window the flick speed is measured over. */
+const FLICK_WINDOW_MS = 100;
 /** The way back when the drag did not reach the threshold. */
 const SETTLE = "transform 160ms cubic-bezier(0.2, 0, 0, 1)";
 /** How long the released page takes to land on the neighbour it was dragged to. */
@@ -59,8 +62,9 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
   const order = options.order ?? NAV.map((item) => item.path);
   let startX = 0;
   let startY = 0;
-  let startAt = 0;
   let pointerId: number | null = null;
+  /** The recent finger, for the speed at release. */
+  let samples: { x: number; t: number }[] = [];
   let dragging = false;
   let offset = 0;
   let previewTo: string | null = null;
@@ -156,7 +160,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     control = target?.closest(CONTROL) ?? null;
     startX = event.clientX;
     startY = event.clientY;
-    startAt = performance.now();
+    samples = [{ x: startX, t: event.timeStamp }];
     pointerId = event.pointerId;
     dragging = false;
   };
@@ -166,8 +170,10 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     // down, or a second finger, would otherwise move the page from a start point it
     // never touched.
     if (pointerId === null || event.pointerId !== pointerId) return;
-    const dx = event.clientX - startX;
-    const dy = event.clientY - startY;
+    let dx = event.clientX - startX;
+    let dy = event.clientY - startY;
+    samples.push({ x: event.clientX, t: event.timeStamp });
+    while (samples.length > 2 && event.timeStamp - samples[0].t > FLICK_WINDOW_MS) samples.shift();
     if (!dragging) {
       // Not committed yet: a vertical drag belongs to the list underneath, and
       // stealing it would make the app unreadable by touch.
@@ -179,6 +185,11 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       // moving from rest, from wherever the finger happens to be.
       startX = event.clientX;
       startY = event.clientY;
+      // And the travel starts from nothing in this same frame, or the slop the
+      // finger already covered would be paid back as a jump.
+      dx = 0;
+      dy = 0;
+      samples = [{ x: startX, t: event.timeStamp }];
       try {
         node.setPointerCapture?.(event.pointerId);
       } catch {
@@ -188,11 +199,12 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       releaseControl();
     }
     const direction: SwipeDirection = dx < 0 ? "next" : "prev";
-    showPreview(neighbourPath(options.path(), direction, order));
-    // The same sheet everywhere: the page is dragged against a resistance that
-    // grows as it goes, whether or not there is a tab on that side. What the end
-    // of the strip lacks is not the resistance -- it is the switch.
-    offset = wallOffset(dx, WALL_LIMIT_PX);
+    const neighbour = neighbourPath(options.path(), direction, order);
+    showPreview(neighbour);
+    // The page follows the finger one for one where there is a page to follow, and
+    // meets the wall where there is none.
+    const span = neighbour ? node.getBoundingClientRect().width : 0;
+    offset = pageTravel(dx, span, WALL_LIMIT_PX);
     move(offset, "none");
   };
 
@@ -201,7 +213,14 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     const wasDragging = dragging;
     release();
     const dx = event.clientX - startX;
-    const direction = swipeDirection(dx, event.clientY - startY, performance.now() - startAt);
+    samples.push({ x: event.clientX, t: event.timeStamp });
+    while (samples.length > 2 && event.timeStamp - samples[0].t > FLICK_WINDOW_MS) samples.shift();
+    const direction = swipeDirection(
+      dx,
+      event.clientY - startY,
+      velocityOver(samples),
+      node.getBoundingClientRect().width,
+    );
     const target = direction ? neighbourPath(options.path(), direction, order) : null;
     if (target && wasDragging) {
       void commit(target, direction === "next" ? "next" : "prev");
