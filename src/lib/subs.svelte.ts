@@ -22,6 +22,7 @@ import {
   type LocationEditDraft,
 } from "$lib/location-draft";
 import { transportSummary } from "$lib/server-label";
+import { hasTraffic, trafficPercent } from "$lib/traffic";
 import {
   resolveSelection,
   serverKey,
@@ -526,10 +527,16 @@ class SubsStore {
     this.revealedHidden = next;
   }
 
-  /** Whether the provider sent any traffic figures — gates the traffic pill, so
-   *  a bare config (no quota/usage) doesn't show a meaningless "0B". */
+  /** Whether the provider sent any traffic figures. The strip is drawn either way;
+   *  this only decides whether it shows numbers or says there are none. */
   hasTraffic(sub: Subscription): boolean {
-    return sub.totalBytes > 0 || sub.usedBytes > 0;
+    return hasTraffic(sub.usedBytes, sub.totalBytes);
+  }
+
+  /** How full the strip is, 0-100. No quota means no fraction to draw: an unknown
+   *  total is not an infinite bar, it is a bar with nothing known about it. */
+  trafficPercent(sub: Subscription): number {
+    return trafficPercent(sub.usedBytes, sub.totalBytes);
   }
 
   trafficText(sub: Subscription): string {

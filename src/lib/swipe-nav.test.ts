@@ -39,8 +39,26 @@ describe("the neighbour under the finger", () => {
     // 1:1 under the finger, wall only where the strip runs out.
     expect(source).toMatch(/const span = neighbour \? node\.getBoundingClientRect\(\)\.width : 0;/);
     expect(source).toMatch(/offset = pageTravel\(dx, span, WALL_LIMIT_PX\);/);
-    expect(source).toMatch(/move\(offset, "none"\);/);
+    // A missed frame is caught up over 70ms instead of in one jump.
+    // A missed frame is caught up over 70ms instead of in one jump, and whether the
+    // frame was missed is decided before the clock is moved.
+    expect(source).toMatch(/const stalled = event\.timeStamp - lastMoveAt > STALL_MS;/);
+    expect(source).toMatch(/move\(offset, stalled \? "catch" : "none"\);/);
     expect(source).not.toMatch(/dragOffset/);
+  });
+
+  it("pays for the neighbour while the page is still at rest", () => {
+    // Rendering a page costs 60-145ms measured. Mounting it when the drag starts
+    // spends that time with the page standing still and the finger ahead of it,
+    // which is the jump; inside the slop there is nothing to jump.
+    expect(source).toMatch(/const PREVIEW_START_PX = 4;/);
+    const slop = source.slice(source.indexOf("if (!dragging) {"));
+    expect(slop.slice(0, 900)).toMatch(/Math\.abs\(dx\) >= PREVIEW_START_PX/);
+    expect(slop.slice(0, 900)).toMatch(/showPreview\(neighbourPath\(options\.path\(\), dx < 0 \? "next" : "prev", order\)\);/);
+    // A refused gesture keeps its neighbour warm for a moment, because a refused
+    // swipe is usually tried again straight away.
+    expect(source).toMatch(/const WARM_MS = 1200;/);
+    expect(source).toMatch(/if \(pointerId === null && !committing && previewTo === token\) showPreview\(null\);/);
   });
 
   it("starts the drag at the finger instead of at the press", () => {
@@ -51,7 +69,7 @@ describe("the neighbour under the finger", () => {
     expect(commit.slice(0, 400)).toMatch(/startY = event\.clientY;/);
     // And nothing animates underneath the finger.
     expect(source).not.toMatch(/START_MS/);
-    expect(source).toMatch(/element\.style\.transition = transition === "settle" \? SETTLE : "none";/);
+    expect(source).toMatch(/transition === "settle" \? SETTLE : transition === "catch" \? CATCH_UP : "none"/);
   });
 
   it("takes the gesture away from the control it started on", () => {

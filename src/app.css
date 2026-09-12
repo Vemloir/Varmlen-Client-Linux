@@ -9,6 +9,10 @@
   --bg-elev-3: #3a3a3a;
   --border: #303030;
   --border-strong: #424242;
+  /* The outline of a control that carries no plate of its own -- white in the dark
+     theme, ink in the light one -- and the fill drawn in that same colour. */
+  --hairline: rgba(255, 255, 255, 0.55);
+  --hairline-fill: rgba(255, 255, 255, 0.18);
   --text: #f2f2f2;
   --text-muted: #9a9a9a;
   --text-dim: #6a6a6a;
@@ -37,6 +41,8 @@
   --bg-elev-3: #e0e0e0;
   --border: #d8d8d8;
   --border-strong: #c0c0c0;
+  --hairline: rgba(0, 0, 0, 0.55);
+  --hairline-fill: rgba(0, 0, 0, 0.14);
   --text: #111111;
   --text-muted: #5a5a5a;
   --text-dim: #8a8a8a;
@@ -178,8 +184,14 @@ a {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background-color: var(--border);
   border-radius: 3px;
+  transition: background-color 90ms linear;
+}
+/* Under a tab swipe the thumb gets out of the way, and comes back as soon as the
+   page has landed. Fast, because it is not the thing being read. */
+.swiping ::-webkit-scrollbar-thumb {
+  background-color: transparent;
 }
 /* Touch devices (Android): no always-on scrollbar strip. */
 @media (pointer: coarse) {

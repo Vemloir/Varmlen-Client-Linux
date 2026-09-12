@@ -149,13 +149,19 @@ describe("card surface contract", () => {
     );
   });
 
-  it("cuts the traffic strip out of the card instead of welding a plate onto it", () => {
+  it("draws the traffic strip as a trough in the card's own colour", () => {
     const home = read("../routes/+page.svelte");
-    // The page colour inside a card reads as an opening in it; a border on top of
-    // that would be a line drawn twice.
-    expect(home).toMatch(/\.traffic-bar\s*\{[^}]*background:\s*var\(--bg\);/s);
-    expect(home).toMatch(/\.traffic-bar\s*\{[^}]*border-radius:\s*100px;/s);
-    expect(home.slice(home.indexOf(".traffic-bar {"), home.indexOf(".traffic-text {")))
-      .not.toMatch(/border:/);
+    const css = read("../app.css");
+    // No plate of its own; a hairline in the theme's outline colour holds it apart
+    // from the card, and the used part is filled in that same colour.
+    expect(home).toMatch(/\.traffic-bar\s*\{[^}]*background:\s*var\(--bg-elev\);/s);
+    expect(home).toMatch(/\.traffic-bar\s*\{[^}]*border:\s*1px solid var\(--hairline\);/s);
+    expect(home).toMatch(/\.traffic-fill\s*\{[^}]*background:\s*var\(--hairline-fill\);/s);
+    expect(css).toMatch(/--hairline:\s*rgba\(255, 255, 255, 0\.55\);/);
+    expect(css).toMatch(/--hairline:\s*rgba\(0, 0, 0, 0\.55\);/);
+    // And it is drawn whatever the provider sent -- an unknown quota is a fact.
+    expect(home).toMatch(/class="traffic-bar"/);
+    expect(home).not.toMatch(/\{#if subs\.hasTraffic\(sub\)\}/);
+    expect(home).toMatch(/width: \{subs\.trafficPercent\(sub\)\}%/);
   });
 });

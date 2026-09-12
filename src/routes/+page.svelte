@@ -619,7 +619,7 @@
         {/if}
       </header>
 
-      {#if !isManual && (subs.hasTraffic(sub) || sub.webPageUrl || sub.supportUrl)}
+      {#if !isManual}
       <div class="sub-traffic">
         {#if sub.webPageUrl}
           <button class="round-btn" aria-label="Website" onclick={() => open(sub.webPageUrl)}>
@@ -630,11 +630,13 @@
             </svg>
           </button>
         {/if}
-        {#if subs.hasTraffic(sub)}
-          <div class="traffic-bar">
-            <span class="traffic-text">{subs.trafficText(sub)}</span>
-          </div>
-        {/if}
+        <!-- Drawn even when the provider sent nothing: a subscription that reports no
+             quota is information, not an absence, and the empty strip is how that
+             reads. -->
+        <div class="traffic-bar">
+          <span class="traffic-fill" style="width: {subs.trafficPercent(sub)}%"></span>
+          <span class="traffic-text">{subs.hasTraffic(sub) ? subs.trafficText(sub) : t("home.trafficNone")}</span>
+        </div>
         {#if sub.supportUrl}
           <button class="round-btn" aria-label="Telegram" onclick={() => open(sub.supportUrl)}>
             <svg width="23" height="23" viewBox="0 0 128 128" fill="currentColor" aria-hidden="true">
@@ -1337,17 +1339,26 @@
   .round-btn:hover {
     background: var(--accent-faint);
   }
-  /* A cut-out in the card rather than a second plate welded onto the first: the
-     strip carries the page colour, and the colour difference is what separates it,
-     so it needs no line of its own. */
+  /* The card's own colour, held apart from the card by a hairline: a trough rather
+     than a second plate. What has been spent is filled in the colour of that hairline,
+     translucent so the figure on top of it stays readable. */
   .traffic-bar {
+    position: relative;
     flex: 1;
-    background: var(--bg);
+    overflow: hidden;
+    background: var(--bg-elev);
+    border: 1px solid var(--hairline);
     border-radius: 100px;
     padding: 6px 14px;
     text-align: center;
   }
+  .traffic-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--hairline-fill);
+  }
   .traffic-text {
+    position: relative;
     font-variant-numeric: tabular-nums;
     font-size: 13px;
     font-weight: 500;

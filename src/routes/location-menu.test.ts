@@ -133,6 +133,7 @@ vi.mock("$lib/subs.svelte", () => ({
     pings: {},
     importing: false,
     hasTraffic: vi.fn(() => false),
+    trafficPercent: vi.fn(() => 0),
     expiresText: vi.fn(() => null),
     trafficText: vi.fn(() => ""),
     isSubPinging: vi.fn(() => false),

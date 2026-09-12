@@ -30,6 +30,15 @@ const CONTROL = "button, a";
 
 /** Sideways travel before we commit to "this is a swipe" and start dragging. */
 const DRAG_START_PX = 10;
+/** Sideways travel at which the neighbour is mounted instead: rendering a page costs
+ *  60-145ms measured, and paying that after the page has started moving is the jerk
+ *  that reads as "nothing happens, then it jumps". Inside the slop the page is still
+ *  at rest, so the cost lands where there is nothing to notice. */
+const PREVIEW_START_PX = 4;
+/** How long a released gesture keeps its neighbour mounted. A second attempt in the
+ *  same direction is then free; after this the strip is not held in memory for a
+ *  reader who went back to reading the list. */
+const WARM_MS = 1200;
 /** How far the page will ever slide at the end of the list, approached but not
  *  reached: see wallOffset(). */
 const WALL_LIMIT_PX = 96;
@@ -37,6 +46,13 @@ const WALL_LIMIT_PX = 96;
 const FLICK_WINDOW_MS = 100;
 /** The way back when the drag did not reach the threshold. */
 const SETTLE = "transform 160ms cubic-bezier(0.2, 0, 0, 1)";
+/** The way forward when a frame was missed. Rendering the neighbour page costs
+ *  60-145ms measured; the finger keeps moving while that runs, and the page has to
+ *  cover the missed distance in one frame or the gesture reads as a jump. Over
+ *  70ms it reads as the sheet catching up. */
+const CATCH_UP = "transform 70ms linear";
+/** Two missed frames of pointer events: past this the gap is a stall, not jitter. */
+const STALL_MS = 32;
 /** How long the released page takes to land on the neighbour it was dragged to. */
 const COMMIT_MS = 180;
 const COMMIT = `transform ${COMMIT_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
@@ -65,6 +81,8 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
   let pointerId: number | null = null;
   /** The recent finger, for the speed at release. */
   let samples: { x: number; t: number }[] = [];
+  /** When the last pointer event arrived: a gap of more than two frames is a stall. */
+  let lastMoveAt = 0;
   let dragging = false;
   let offset = 0;
   let previewTo: string | null = null;
@@ -81,10 +99,11 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     options.preview?.(to);
   };
 
-  const move = (dx: number, transition: "settle" | "none" = "none") => {
+  const move = (dx: number, transition: "settle" | "none" | "catch" = "none") => {
     const element = track();
     if (!element) return;
-    element.style.transition = transition === "settle" ? SETTLE : "none";
+    element.style.transition =
+      transition === "settle" ? SETTLE : transition === "catch" ? CATCH_UP : "none";
     element.style.transform = dx === 0 ? "" : `translateX(${dx}px)`;
   };
 
@@ -118,6 +137,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
   };
 
   const release = () => {
+    node.classList.remove("swiping");
     if (pointerId === null) return;
     if (node.hasPointerCapture?.(pointerId)) node.releasePointerCapture(pointerId);
     pointerId = null;
@@ -161,6 +181,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     startX = event.clientX;
     startY = event.clientY;
     samples = [{ x: startX, t: event.timeStamp }];
+    lastMoveAt = event.timeStamp;
     pointerId = event.pointerId;
     dragging = false;
   };
@@ -177,7 +198,14 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     if (!dragging) {
       // Not committed yet: a vertical drag belongs to the list underneath, and
       // stealing it would make the app unreadable by touch.
-      if (Math.abs(dx) < DRAG_START_PX || Math.abs(dx) < 2 * Math.abs(dy)) return;
+      if (Math.abs(dx) < DRAG_START_PX || Math.abs(dx) < 2 * Math.abs(dy)) {
+        // Still inside the slop. If the finger is going sideways, this is where the
+        // neighbour is paid for -- see PREVIEW_START_PX.
+        if (Math.abs(dx) >= PREVIEW_START_PX && Math.abs(dx) >= 2 * Math.abs(dy)) {
+          showPreview(neighbourPath(options.path(), dx < 0 ? "next" : "prev", order));
+        }
+        return;
+      }
       dragging = true;
       // The gesture is anchored here, at the finger, and not at the press. The
       // finger had already travelled the slop by the time this was a swipe, and
@@ -190,6 +218,8 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       dx = 0;
       dy = 0;
       samples = [{ x: startX, t: event.timeStamp }];
+      // The thumb of the list gets out of the way for the length of the gesture.
+      node.classList.add("swiping");
       try {
         node.setPointerCapture?.(event.pointerId);
       } catch {
@@ -200,12 +230,15 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     }
     const direction: SwipeDirection = dx < 0 ? "next" : "prev";
     const neighbour = neighbourPath(options.path(), direction, order);
+    // Whether this frame arrives late is decided before the clock is moved.
+    const stalled = event.timeStamp - lastMoveAt > STALL_MS;
     showPreview(neighbour);
+    lastMoveAt = event.timeStamp;
     // The page follows the finger one for one where there is a page to follow, and
     // meets the wall where there is none.
     const span = neighbour ? node.getBoundingClientRect().width : 0;
     offset = pageTravel(dx, span, WALL_LIMIT_PX);
-    move(offset, "none");
+    move(offset, stalled ? "catch" : "none");
   };
 
   const onUp = (event: PointerEvent) => {
@@ -226,9 +259,15 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       void commit(target, direction === "next" ? "next" : "prev");
       return;
     }
-    showPreview(null);
     offset = 0;
     if (wasDragging) move(0, "settle");
+    // Kept warm for a moment: an attempt that was refused is usually tried again.
+    const token = previewTo;
+    if (token) {
+      setTimeout(() => {
+        if (pointerId === null && !committing && previewTo === token) showPreview(null);
+      }, WARM_MS);
+    }
   };
 
   const onCancel = (event: Event) => {
