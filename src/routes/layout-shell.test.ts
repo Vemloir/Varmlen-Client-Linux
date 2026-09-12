@@ -18,8 +18,10 @@ describe("shell: tabs by swipe, with the new page arriving from the side", () =>
   it("hands the content area to the swipe action", () => {
     expect(shell).toMatch(/<main\s+class="content"\s+use:swipeNav=\{\{/s);
     // Not `page.url.pathname`: the origin Tauri serves from has no path at all.
-    expect(shell).toMatch(/path: \(\) => navPath\(\),/);
-    expect(shell).toMatch(/go: goTo,/);
+    // The strip is longer than the tab bar: the split page counts as two places.
+    expect(shell).toMatch(/path: \(\) => zoneOf\(navPath\(\), split\.tab\),/);
+    expect(shell).toMatch(/order: \(\) => zoneOrder\(appsAvailable\),/);
+    expect(shell).toMatch(/go: goToZone,/);
   });
 
   it("rides with the pointer and slows down into the end of the list", () => {
@@ -156,7 +158,9 @@ describe("shell: each tab keeps the position the reader stopped at", () => {
     it(`${page} restores its own offset`, () => {
       const source = read(page);
       // Keyed by the live path, or by the path a preview is standing in for.
-      expect(source).toMatch(/use:persistScroll=\{preview \|\| navPath\(\)\}/);
+      expect(source).toMatch(
+        /use:persistScroll=\{preview \|\| (navPath\(\)|zoneOf\(navPath\(\), split\.tab\))\}/,
+      );
       expect(source).toMatch(/import \{ persistScroll \} from "\$lib\/scroll-memory"/);
     });
   }

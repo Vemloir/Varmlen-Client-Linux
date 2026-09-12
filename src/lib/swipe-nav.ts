@@ -71,11 +71,14 @@ export interface SwipeNavOptions {
    *  when the gesture ends. Without it a swipe reveals a strip of background
    *  instead of the tab it is heading for. */
   preview?: (path: string | null) => void;
-  order?: readonly string[];
+  /** The strip, read at the moment of the gesture: the split page is two places
+   *  wide, and whether the applications one of them exists depends on the VPN mode. */
+  order?: () => readonly string[];
 }
 
 export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
-  const order = options.order ?? NAV.map((item) => item.path);
+  const routes = NAV.map((item) => item.path);
+  const order = () => options.order?.() ?? routes;
   let startX = 0;
   let startY = 0;
   let pointerId: number | null = null;
@@ -202,7 +205,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
         // Still inside the slop. If the finger is going sideways, this is where the
         // neighbour is paid for -- see PREVIEW_START_PX.
         if (Math.abs(dx) >= PREVIEW_START_PX && Math.abs(dx) >= 2 * Math.abs(dy)) {
-          showPreview(neighbourPath(options.path(), dx < 0 ? "next" : "prev", order));
+          showPreview(neighbourPath(options.path(), dx < 0 ? "next" : "prev", order()));
         }
         return;
       }
@@ -229,7 +232,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       releaseControl();
     }
     const direction: SwipeDirection = dx < 0 ? "next" : "prev";
-    const neighbour = neighbourPath(options.path(), direction, order);
+    const neighbour = neighbourPath(options.path(), direction, order());
     // Whether this frame arrives late is decided before the clock is moved.
     const stalled = event.timeStamp - lastMoveAt > STALL_MS;
     showPreview(neighbour);
@@ -254,7 +257,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       velocityOver(samples),
       node.getBoundingClientRect().width,
     );
-    const target = direction ? neighbourPath(options.path(), direction, order) : null;
+    const target = direction ? neighbourPath(options.path(), direction, order()) : null;
     if (target && wasDragging) {
       void commit(target, direction === "next" ? "next" : "prev");
       return;

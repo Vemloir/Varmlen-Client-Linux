@@ -24,7 +24,7 @@ describe("the neighbour under the finger", () => {
 
   it("mounts the neighbour the gesture is heading for", () => {
     expect(source).toMatch(/preview\?: \(path: string \| null\) => void;/);
-    expect(source).toMatch(/const neighbour = neighbourPath\(options\.path\(\), direction, order\);/);
+    expect(source).toMatch(/const neighbour = neighbourPath\(options\.path\(\), direction, order\(\)\);/);
     expect(source).toMatch(/showPreview\(neighbour\);/);
     expect(layout).toMatch(/preview: setPreview,/);
     expect(layout).toMatch(/<HomePage preview=\{preview\.path\} \/>/);
@@ -54,7 +54,7 @@ describe("the neighbour under the finger", () => {
     expect(source).toMatch(/const PREVIEW_START_PX = 4;/);
     const slop = source.slice(source.indexOf("if (!dragging) {"));
     expect(slop.slice(0, 900)).toMatch(/Math\.abs\(dx\) >= PREVIEW_START_PX/);
-    expect(slop.slice(0, 900)).toMatch(/showPreview\(neighbourPath\(options\.path\(\), dx < 0 \? "next" : "prev", order\)\);/);
+    expect(slop.slice(0, 900)).toMatch(/showPreview\(neighbourPath\(options\.path\(\), dx < 0 \? "next" : "prev", order\(\)\)\);/);
     // A refused gesture keeps its neighbour warm for a moment, because a refused
     // swipe is usually tried again straight away.
     expect(source).toMatch(/const WARM_MS = 1200;/);
@@ -127,13 +127,17 @@ describe("the neighbour under the finger", () => {
   });
 
   it("does not run the arrival animation twice on a dragged-in page", () => {
-    expect(layout).toMatch(/draggedIn = to;/);
+    // The flag is keyed by route, because that is what the slide effect compares
+    // against -- and a swipe between the two halves of the split page changes no
+    // route at all.
+    expect(layout).toMatch(/const route = routeOf\(zone\);/);
+    expect(layout).toMatch(/draggedIn = route;/);
     expect(layout).toMatch(/if \(draggedIn === path\) \{\s*draggedIn = null;\s*slide = null;/);
   });
 
   it("keeps the neighbour's own reading position, not the current tab's", () => {
     for (const page of [home, split, settings]) {
-      expect(page).toMatch(/use:persistScroll=\{preview \|\| navPath\(\)\}/);
+      expect(page).toMatch(/use:persistScroll=\{preview \|\| (navPath\(\)|zoneOf\(navPath\(\), split\.tab\))\}/);
     }
   });
 

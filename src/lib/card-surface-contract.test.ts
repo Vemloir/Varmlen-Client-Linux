@@ -149,6 +149,15 @@ describe("card surface contract", () => {
     );
   });
 
+  it("says which split row the pointer is on", () => {
+    const css = read("../app.css");
+    // The same tint the settings rows and the location rows use, behind the same
+    // guards: a touch device has no pointer to follow, and Android draws its own.
+    expect(css).toMatch(
+      /@media \(hover: hover\) and \(pointer: fine\) \{\s*html:not\(\.is-android\) \.list-row:hover \{\s*background: var\(--bg-elev-2\);/s,
+    );
+  });
+
   it("draws the traffic strip as a trough in the card's own colour", () => {
     const home = read("../routes/+page.svelte");
     const css = read("../app.css");

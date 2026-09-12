@@ -1,5 +1,6 @@
 <script lang="ts">
   import { navPath } from "$lib/nav-path";
+  import { tabOf, zoneOf } from "$lib/nav-zones";
   import { persistScroll } from "$lib/scroll-memory";
   import { onDestroy, tick } from "svelte";
   import { split, type Mode } from "$lib/split.svelte";
@@ -22,10 +23,12 @@
   }
   let { preview = "" }: Props = $props();
 
-  type Tab = "apps" | "websites";
-  let tab = $state<Tab>(
-    appSplitAvailable(settings.vpnMode) ? "apps" : "websites",
-  );
+  /* The tab is the store's, not the page's: applications and websites are two places
+     in the swipe strip that share this route, so the shell has to be able to read and
+     move it. A preview shows the half its zone asks for and changes nothing -- two
+     mounted copies of this page must not fight over the same state. */
+  const previewTab = $derived(tabOf(preview));
+  const tab = $derived(previewTab ?? split.tab);
   const appsAvailable = $derived(appSplitAvailable(settings.vpnMode));
 
   // The selector's sliding panel is measured, not guessed. Percentages inside a
@@ -84,16 +87,21 @@
       showAppsUnavailableNotice();
       return;
     }
-    if (event.type === "click") tab = "apps";
+    if (event.type === "click") selectAppsTab();
+  }
+
+  function selectAppsTab(): void {
+    if (!preview) split.setTab("apps");
   }
 
   function selectWebsitesTab(): void {
-    tab = "websites";
+    if (!preview) split.setTab("websites");
     hideAppsUnavailableNotice();
   }
 
   $effect(() => {
-    if (!appsAvailable && tab === "apps") tab = "websites";
+    if (preview) return;
+    if (!appsAvailable && split.tab === "apps") split.setTab("websites");
     if (appsAvailable) hideAppsUnavailableNotice();
   });
 
@@ -227,7 +235,7 @@
   <h1>{t("split.title")}</h1>
 </header>
 
-<div class="page" use:persistScroll={preview || navPath()}>
+<div class="page" use:persistScroll={preview || zoneOf(navPath(), split.tab)}>
 
   <div class="segmented" role="tablist" bind:this={segEl}>
     <span class="seg-thumb" style={thumbStyle} aria-hidden="true"></span>

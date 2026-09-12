@@ -1,6 +1,7 @@
 import { browser } from "$app/environment";
 import { applySplitLive, type SplitInput } from "$lib/api";
 import { isLinux } from "$lib/platform";
+import type { SplitTab } from "./nav-zones";
 import { migrateSitePatterns } from "./site-pattern";
 
 export type Mode = "selective" | "general";
@@ -135,6 +136,17 @@ class SplitStore {
   sitesMode = $state<Mode>(_initialSplit.sitesMode);
   appsBuckets = $state<ModeBuckets<AppEntry>>(_initialSplit.apps);
   sitesBuckets = $state<ModeBuckets<SiteEntry>>(_initialSplit.sites);
+
+  /** Which half of the split page the reader is looking at. It lives here rather
+   *  than in the page because the swipe strip has to know it too: applications and
+   *  websites are two places in the strip that share one route, and a drag from Home
+   *  has to land on the right half without navigating twice. Not persisted -- it is
+   *  where the eyes were, not a setting. */
+  tab = $state<SplitTab>("apps");
+
+  setTab(tab: SplitTab): void {
+    this.tab = tab;
+  }
 
   /** Active-mode apps — what the UI binds to and what's sent to the backend. */
   get apps(): AppEntry[] {

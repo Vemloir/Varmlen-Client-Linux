@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- The swipe strip is four places long: Home, applications, websites, Settings. The tab
+  bar still has three segments and the router still knows three paths, because the split
+  page is two places wide and dragging between them moves the reader whether or not the
+  address changes. `nav-zones.ts` holds the difference in one pure module -- the strip,
+  the route a place lives on, the half it asks for -- so the gesture, the neighbour under
+  the finger and the scroll memory cannot disagree about where the strip goes. When the
+  VPN mode cannot route applications, that place is left out of the strip rather than
+  being a wall-sized nothing. Measured in the running app: `/` -> `/split/apps` ->
+  `/split/sites` -> `/settings` -> wall.
+- The split tab moved from the page into the store, for the same reason the revealed
+  hidden locations did: the shell has to read it and move it. A preview shows the half
+  its zone asks for and writes nothing, so two mounted copies of the page cannot fight
+  over one piece of state.
+- A row in the split list says which row the pointer is on, in the tint the settings rows
+  and the location rows already use, behind the same guards: no pointer on a touch
+  device, and Android draws its own.
 - The traffic strip in a subscription card carries the page colour now, and no border
   of its own: inside a card that reads as an opening cut into it, and a line drawn on
   top of that difference would be the same line twice.

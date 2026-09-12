@@ -5,6 +5,8 @@
   import { goto } from "$app/navigation";
   import { NAV } from "$lib/nav";
   import { navPath } from "$lib/nav-path";
+  import { routeOf, tabOf, zoneOf, zoneOrder } from "$lib/nav-zones";
+  import { appSplitAvailable } from "$lib/split-availability";
   import { swipeNav } from "$lib/swipe-nav";
   import { slideDirection } from "$lib/swipe";
   import { t } from "$lib/i18n.svelte";
@@ -87,6 +89,11 @@
   // the origin Tauri serves the bundle from has no path at all.
   const currentPath = $derived(navPath());
   const TAB_PATHS = NAV.map((item) => item.path);
+  /* The strip a swipe travels along. It is longer than the tab bar: the split page is
+     two places wide -- applications, then websites -- and dragging between them moves
+     the reader even though the address does not. */
+  const appsAvailable = $derived(appSplitAvailable(settings.vpnMode));
+  const currentZone = $derived(zoneOf(currentPath, split.tab));
 
   // Which way a new page arrives. Recorded while the path changes and cleared
   // when the animation is over, so a re-render cannot restart it.
@@ -108,14 +115,18 @@
       preview = null;
       return;
     }
-    const rank = (path: string) =>
-      TAB_PATHS.findIndex((tab) => (tab === "/" ? path === "/" : path.startsWith(tab)));
-    preview = { path: to, side: rank(to) >= rank(navPath()) ? "next" : "prev" };
+    const order = zoneOrder(appsAvailable);
+    preview = { path: to, side: order.indexOf(to) >= order.indexOf(currentZone) ? "next" : "prev" };
   }
 
-  async function goTo(to: string): Promise<void> {
-    draggedIn = to;
-    await goto(to);
+  /** A zone is reached either by navigating or by moving the split page between its
+   *  two halves -- and only by navigating when the reader is not on that page yet. */
+  async function goToZone(zone: string): Promise<void> {
+    const route = routeOf(zone);
+    draggedIn = route;
+    if (route !== navPath()) await goto(route);
+    const tab = tabOf(zone);
+    if (tab) split.setTab(tab);
     await tick();
   }
 
@@ -237,8 +248,9 @@
   <main
     class="content"
     use:swipeNav={{
-      path: () => navPath(),
-      go: goTo,
+      path: () => zoneOf(navPath(), split.tab),
+      order: () => zoneOrder(appsAvailable),
+      go: goToZone,
       track: () => trackEl ?? null,
       preview: setPreview,
     }}

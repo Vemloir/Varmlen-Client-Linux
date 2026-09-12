@@ -423,6 +423,14 @@ input[type="search"]::-webkit-search-cancel-button {
 .list-row.tappable:hover {
   background: var(--bg-elev-2);
 }
+/* A split row is not tappable as a whole -- it carries a switch and a remove button --
+   but the pointer still has to say which row it is on, the way the settings rows and
+   the location rows do. */
+@media (hover: hover) and (pointer: fine) {
+  html:not(.is-android) .list-row:hover {
+    background: var(--bg-elev-2);
+  }
+}
 
 /* ---------- soft fade at the bottom edge of the window ----------
    The bands are laid over the pages by the shell, not as a mask on the scroll
