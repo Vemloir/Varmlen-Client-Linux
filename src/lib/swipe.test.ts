@@ -8,7 +8,6 @@ import {
   slideDirection,
   swipeDirection,
   wallOffset,
-  dragOffset,
 } from "./swipe";
 
 const TABS = ["/", "/split", "/settings"] as const;
@@ -80,42 +79,5 @@ describe("swipe between tabs", () => {
     expect(slideDirection("/settings", "/", TABS)).toBe("prev");
     expect(slideDirection("/split", "/split", TABS)).toBe(null);
     expect(slideDirection("/", "/unknown", TABS)).toBe(null);
-  });
-});
-
-/**
- * A swipe delivers exactly one tab, so the page must not travel further than one
- * page no matter how far the finger goes: two pages of tab sliding past the
- * finger promises a jump the release never makes.
- */
-describe("the drag stops at the tab it can deliver", () => {
-  const SPAN = 440;
-  const WALL = 96;
-
-  it("follows the finger one to one within one page", () => {
-    expect(dragOffset(0, SPAN, WALL)).toBe(0);
-    expect(dragOffset(180, SPAN, WALL)).toBe(180);
-    expect(dragOffset(-440, SPAN, WALL)).toBe(-440);
-  });
-
-  it("slows down past the page and never passes the limit", () => {
-    expect(dragOffset(600, SPAN, WALL)).toBeGreaterThan(SPAN);
-    expect(dragOffset(100_000, SPAN, WALL)).toBeLessThan(SPAN + WALL);
-    expect(dragOffset(-600, SPAN, WALL)).toBeLessThan(-SPAN);
-    expect(dragOffset(-100_000, SPAN, WALL)).toBeGreaterThan(-(SPAN + WALL));
-  });
-
-  it("gives up ground continuously, without a step at the boundary", () => {
-    // The pixel just past the page has to buy less page than the pixel just
-    // before it, and the rate keeps falling.
-    const rate = (x: number) => dragOffset(x + 1, SPAN, WALL) - dragOffset(x, SPAN, WALL);
-    expect(rate(SPAN - 1)).toBeCloseTo(1, 5);
-    expect(rate(SPAN)).toBeLessThan(1);
-    expect(rate(SPAN + 200)).toBeLessThan(rate(SPAN));
-    expect(rate(SPAN + 2000)).toBeLessThan(rate(SPAN + 200));
-  });
-
-  it("does nothing at all when there is no page to measure", () => {
-    expect(dragOffset(900, 0, WALL)).toBe(900);
   });
 });

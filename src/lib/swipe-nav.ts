@@ -1,6 +1,5 @@
 import { NAV } from "$lib/nav";
 import {
-  dragOffset,
   neighbourPath,
   swipeDirection,
   wallOffset,
@@ -35,11 +34,6 @@ const DRAG_START_PX = 10;
 const WALL_LIMIT_PX = 96;
 /** The way back when the drag did not reach the threshold. */
 const SETTLE = "transform 160ms cubic-bezier(0.2, 0, 0, 1)";
-/** For the first moments of a drag the page follows the finger with a short lag
- *  instead of snapping to it: a gesture that starts with a jump of ten pixels
- *  reads as the interface deciding, not as the page being picked up. */
-const START_MS = 120;
-const START = `transform ${START_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
 /** How long the released page takes to land on the neighbour it was dragged to. */
 const COMMIT_MS = 180;
 const COMMIT = `transform ${COMMIT_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
@@ -71,7 +65,6 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
   let offset = 0;
   let previewTo: string | null = null;
   let committing = false;
-  let startedAt = 0;
   /** The control the finger landed on, if any, until the gesture takes it away. */
   let control: HTMLElement | null = null;
 
@@ -84,11 +77,10 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     options.preview?.(to);
   };
 
-  const move = (dx: number, transition: "settle" | "start" | "none" = "none") => {
+  const move = (dx: number, transition: "settle" | "none" = "none") => {
     const element = track();
     if (!element) return;
-    element.style.transition =
-      transition === "settle" ? SETTLE : transition === "start" ? START : "none";
+    element.style.transition = transition === "settle" ? SETTLE : "none";
     element.style.transform = dx === 0 ? "" : `translateX(${dx}px)`;
   };
 
@@ -177,7 +169,12 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       // stealing it would make the app unreadable by touch.
       if (Math.abs(dx) < DRAG_START_PX || Math.abs(dx) < 2 * Math.abs(dy)) return;
       dragging = true;
-      startedAt = performance.now();
+      // The gesture is anchored here, at the finger, and not at the press. The
+      // finger had already travelled the slop by the time this was a swipe, and
+      // carrying that into the page is the jump this removes: the page starts
+      // moving from rest, from wherever the finger happens to be.
+      startX = event.clientX;
+      startY = event.clientY;
       try {
         node.setPointerCapture?.(event.pointerId);
       } catch {
@@ -187,14 +184,12 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       releaseControl();
     }
     const direction: SwipeDirection = dx < 0 ? "next" : "prev";
-    const neighbour = neighbourPath(options.path(), direction, order);
-    // At the end of the strip there is no neighbour to show, only a wall.
-    showPreview(neighbour);
-    const span = track()?.clientWidth ?? 0;
-    offset =
-      neighbour === null ? wallOffset(dx, WALL_LIMIT_PX) : dragOffset(dx, span, WALL_LIMIT_PX);
-    // One page of lag at the start, then the page tracks the finger exactly.
-    move(offset, performance.now() - startedAt < START_MS ? "start" : "none");
+    showPreview(neighbourPath(options.path(), direction, order));
+    // The same sheet everywhere: the page is dragged against a resistance that
+    // grows as it goes, whether or not there is a tab on that side. What the end
+    // of the strip lacks is not the resistance -- it is the switch.
+    offset = wallOffset(dx, WALL_LIMIT_PX);
+    move(offset, "none");
   };
 
   const onUp = (event: PointerEvent) => {

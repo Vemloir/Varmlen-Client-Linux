@@ -24,27 +24,30 @@ describe("the neighbour under the finger", () => {
 
   it("mounts the neighbour the gesture is heading for", () => {
     expect(source).toMatch(/preview\?: \(path: string \| null\) => void;/);
-    expect(source).toMatch(/showPreview\(neighbour\);/);
+    expect(source).toMatch(/showPreview\(neighbourPath\(options\.path\(\), direction, order\)\);/);
     expect(layout).toMatch(/preview: setPreview,/);
     expect(layout).toMatch(/<HomePage preview=\{preview\.path\} \/>/);
     expect(layout).toMatch(/<SplitPage preview=\{preview\.path\} \/>/);
     expect(layout).toMatch(/<SettingsPage preview=\{preview\.path\} \/>/);
   });
 
-  it("shows a wall, not a neighbour, past the end of the strip", () => {
-    expect(source).toMatch(/neighbour === null \? wallOffset\(dx, WALL_LIMIT_PX\)/);
+  it("drags the same sheet everywhere, and switches where there is a tab", () => {
+    // The end of the strip does not lack resistance -- it lacks the switch. One
+    // physics for both means a drag in the middle cannot be pulled further than
+    // the page is ever willing to travel.
+    expect(source).toMatch(/offset = wallOffset\(dx, WALL_LIMIT_PX\);\s*move\(offset, "none"\);/);
+    expect(source).not.toMatch(/dragOffset/);
   });
 
-  it("never drags further than the one tab a release can deliver", () => {
-    expect(source).toMatch(/dragOffset\(dx, span, WALL_LIMIT_PX\)/);
-    expect(source).toMatch(/const span = track\(\)\?\.clientWidth \?\? 0;/);
-  });
-
-  it("picks the page up instead of snapping it", () => {
-    expect(source).toMatch(/const START_MS = 120;/);
-    expect(source).toMatch(
-      /move\(offset, performance\.now\(\) - startedAt < START_MS \? "start" : "none"\);/,
-    );
+  it("starts the drag at the finger instead of at the press", () => {
+    // The slop had already been travelled when the gesture became a swipe; carrying
+    // it into the page is the jump this removes.
+    const commit = source.slice(source.indexOf("dragging = true;"));
+    expect(commit.slice(0, 400)).toMatch(/startX = event\.clientX;/);
+    expect(commit.slice(0, 400)).toMatch(/startY = event\.clientY;/);
+    // And nothing animates underneath the finger.
+    expect(source).not.toMatch(/START_MS/);
+    expect(source).toMatch(/element\.style\.transition = transition === "settle" \? SETTLE : "none";/);
   });
 
   it("takes the gesture away from the control it started on", () => {

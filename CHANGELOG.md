@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- The drag no longer starts with a jump. The gesture is anchored at the finger the
+  moment it becomes a swipe, instead of at the press: the finger had already travelled
+  the slop by then, and carrying that into the page is what made the page snap ten
+  pixels sideways in the first frame. Nothing animates under the finger any more --
+  the lag that replaced it only traded the jump for a different one when the transition
+  was cut off.
+- The same sheet everywhere. Whether or not there is a tab on that side, the page is
+  pulled against a resistance that grows as it goes; what the end of the strip lacks is
+  not the resistance but the switch. A swipe in the middle can therefore no longer be
+  dragged further than the page is ever willing to travel, and the one overdrag rule
+  (`dragOffset`) is gone rather than being a second physics next to the first.
+- The fade at the bottom edge is drawn as a path through six points, and they belong to
+  the pill: the window's bottom-left corner, the pill's leftmost point at its vertical
+  centre, the same at its top, the pill's rightmost point at its top, the same at its
+  vertical centre, the window's bottom-right corner. It is measured from the real tab
+  bar and re-measured on resize, so a wider or taller pill moves the curve by itself.
+  The outline is lifted 48px above the pill: hugging it exactly put the plateau below
+  where a list ends, and the pixel probe showed the card keeping its full colour down
+  to its own bottom edge -- a fade with nothing to fade.
 - The first tab is swipeable again, and it was never about the rows. Tauri serves the
   bundle from `tauri://localhost` -- no trailing slash -- and WebKitGTK reports that
   origin with an empty pathname, so before the first navigation the app was standing on
