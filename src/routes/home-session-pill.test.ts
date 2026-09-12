@@ -53,10 +53,9 @@ describe("home: session pill under the power button", () => {
     expect(css.slice(css.indexOf(".session-sep"))).toMatch(/^\.session-sep\s*\{(?![^}]*height:)/s);
   });
 
-  it("sits on the page, with the partitions in the panel colour", () => {
-    expect(css).toMatch(/\.session-pill\s*\{[^}]*background:\s*var\(--bg\);/s);
-    // A line the colour of the surface it is drawn on is not a line.
-    expect(css).toMatch(/\.session-sep\s*\{[^}]*width:\s*2px;[^}]*background:\s*var\(--bg-elev\);/s);
+  it("is the same idiom as the tab bar: raised plate, page showing through", () => {
+    expect(css).toMatch(/\.session-pill\s*\{[^}]*background:\s*var\(--bg-elev\);/s);
+    expect(css).toMatch(/\.session-sep\s*\{[^}]*width:\s*2px;[^}]*background:\s*var\(--bg\);/s);
   });
 
   it("has every duration unit in both languages", () => {

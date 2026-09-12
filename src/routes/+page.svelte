@@ -1090,10 +1090,9 @@
     align-items: stretch;
     margin-top: 10px;
     border-radius: 999px;
-    /* No plate at all: the numbers sit on the page, and the partitions between them
-       take the panel colour -- a line the colour of the surface it is drawn on is
-       not a line. */
-    background: var(--bg);
+    /* The same idiom as the tab bar: a raised plate with the page showing through
+       the partitions. */
+    background: var(--bg-elev);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
     color: var(--text);
@@ -1112,7 +1111,7 @@
      decoration rather than as the line between two numbers. */
   .session-sep {
     width: 2px;
-    background: var(--bg-elev);
+    background: var(--bg);
   }
   .status-text[data-status="connected"] { color: var(--accent); }
   .status-text[data-status="connecting"] { color: var(--accent); }
@@ -1338,10 +1337,12 @@
   .round-btn:hover {
     background: var(--accent-faint);
   }
+  /* A cut-out in the card rather than a second plate welded onto the first: the
+     strip carries the page colour, and the colour difference is what separates it,
+     so it needs no line of its own. */
   .traffic-bar {
     flex: 1;
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border);
+    background: var(--bg);
     border-radius: 100px;
     padding: 6px 14px;
     text-align: center;

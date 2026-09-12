@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The traffic strip in a subscription card carries the page colour now, and no border
+  of its own: inside a card that reads as an opening cut into it, and a line drawn on
+  top of that difference would be the same line twice.
+- The session readout is back the way it was -- raised plate, page showing through the
+  partitions. The previous commit recoloured the wrong element: the request was about
+  the traffic strip in the subscription card, not about the pill under the power button.
 - The swipe follows the finger again. Two hundred pixels of finger were buying seventy
   of page, because the growing resistance was applied in the middle of the strip as
   well as at its end; that is what made the gesture feel like a screen that was not

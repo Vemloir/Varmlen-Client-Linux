@@ -148,4 +148,14 @@ describe("card surface contract", () => {
       /\.log-text\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*margin:\s*0;/s,
     );
   });
+
+  it("cuts the traffic strip out of the card instead of welding a plate onto it", () => {
+    const home = read("../routes/+page.svelte");
+    // The page colour inside a card reads as an opening in it; a border on top of
+    // that would be a line drawn twice.
+    expect(home).toMatch(/\.traffic-bar\s*\{[^}]*background:\s*var\(--bg\);/s);
+    expect(home).toMatch(/\.traffic-bar\s*\{[^}]*border-radius:\s*100px;/s);
+    expect(home.slice(home.indexOf(".traffic-bar {"), home.indexOf(".traffic-text {")))
+      .not.toMatch(/border:/);
+  });
 });
