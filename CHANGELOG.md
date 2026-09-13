@@ -25,11 +25,18 @@
   the moment the page landed. The landing place is now the saved half, and the neighbour
   standing beside the finger stands for that half too, so nothing moves after the landing.
   A gesture on the page itself still moves between its halves.
-- The plate no longer slides from nowhere when the page mounts. It is placed by
-  measurement, and the measurement lands a frame after the markup, so across that gap the
-  plate animated from the left edge to its label -- the jerk the control made when the
-  page came back with Websites selected, that being the label with the longest way to go.
-  The transition waits for the measurement.
+- The plate no longer sweeps across the control when the page is opened. Recorded frame by
+  frame on a return to the page with Websites selected, the plate stood at translateX 0 --
+  over Applications, where an unmeasured plate always sits -- and ran 0, 31, 107, 146, 169,
+  183, 192, 198, 201 over ten frames to reach Websites. It is not a change of selection
+  and it is not the reader moving anything: a transition starts from whatever the browser
+  had computed before the change, and the commit that reveals the measured plate is the
+  same commit that moves it, so the transition started from the unmeasured position. The
+  plate is now invisible and unable to move until its measured place has been computed
+  once, and nothing animates before that. Recorded again after the change: the first frame
+  back is already at translateX 201, and it stays there. Gating the transition on the
+  measurement, which is what was tried first, does not help -- the transition property is
+  read from the style the change produces, not the one it starts from.
 - The plate is a pill again. Giving the control a `padding` for the space around it
   widened it to the whole window -- the control's own padding is the plate's inner frame
   -- and left the labels floating 20px inside a slab. The space is a margin.

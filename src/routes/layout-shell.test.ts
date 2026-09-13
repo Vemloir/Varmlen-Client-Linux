@@ -178,13 +178,22 @@ describe("split tunnelling: one scroller, two halves", () => {
     // Under the finger the plate is where the finger is, so it does not animate, and it
     // is the only highlight while it travels.
     expect(source).toMatch(/\.segmented\.seg--dragging \.seg-thumb \{[^}]*transition: none;/s);
-    // The plate is placed by measurement; before the measurement lands it must not
-    // slide, or it jumps from nowhere to its label every time the page mounts.
-    expect(source).toMatch(/\.segmented \.seg-thumb \{[^}]*transition: none;/s);
+    // The plate is placed by measurement, and it may not move until that place has been
+    // on screen: a transition starts from whatever the browser computed before, and before
+    // the measurement the plate sits over the other label. Enabling the transition in the
+    // commit that reveals it is what swept the highlight across the control on arrival.
+    expect(source).toMatch(/\.segmented \.seg-thumb \{[^}]*opacity: 0;[^}]*transition: none;/s);
     expect(source).toMatch(
-      /\.segmented\.seg--measured \.seg-thumb \{[^}]*transition: transform var\(--transition\);/s,
+      /\.segmented\.seg--ready \.seg-thumb \{[^}]*opacity: 1;[^}]*transition: transform var\(--transition\);/s,
     );
-    expect(source).toMatch(/class:seg--measured=\{seg\.width > 0\}/);
+    expect(source).toMatch(/class:seg--ready=\{plateReady\}/);
+    expect(source).toMatch(/function armPlate\(\): void \{\s*if \(plateReady\) return;/);
+    // The place has to be computed before the transition is allowed, or the frame that
+    // arms it is the frame that moves.
+    expect(source).toMatch(
+      /requestAnimationFrame\(\(\) => \{\s*void segEl\?\.offsetWidth;\s*plateReady = true;/,
+    );
+    expect(source).toMatch(/armPlate\(\);\s*\}/);
     expect(source).toMatch(
       /\.segmented\.seg--dragging :global\(button\.active\) \{[^}]*background: transparent;/s,
     );

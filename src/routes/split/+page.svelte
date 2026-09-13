@@ -55,6 +55,27 @@
       width: first.offsetWidth,
       step: second ? second.offsetLeft - first.offsetLeft : 0,
     };
+    armPlate();
+  }
+  /* The plate may move only after it has been seen standing where it belongs.
+
+     A transition runs from whatever the browser had computed before the change. Before
+     the measurement the plate sits at translateX(0), which is over the other label, and
+     WebKit starts the transition in the very commit that both reveals the plate and moves
+     it to the measured place -- so opening this page on Websites swept the highlight over
+     Applications and back, on every visit, however the page was arrived at. Measured
+     frame by frame: translateX 0, 31, 107, 146, 169, 183, 192, 198, 201 over ten frames.
+
+     Nothing is moving when a page arrives, so nothing may animate until the plate has
+     been drawn at its place. The read in the frame below is what makes that place the
+     style the next change starts from. */
+  let plateReady = $state(false);
+  function armPlate(): void {
+    if (plateReady) return;
+    requestAnimationFrame(() => {
+      void segEl?.offsetWidth;
+      plateReady = true;
+    });
   }
   /* Which label the plate is under, as a number between the two. At rest it is exactly
      one of them; under a swipe between the halves it is wherever the finger has got to,
@@ -281,7 +302,7 @@
   <div
     class="segmented"
     class:seg--dragging={paneDrag.live}
-    class:seg--measured={seg.width > 0}
+    class:seg--ready={plateReady}
     role="tablist"
     bind:this={segEl}
   >
@@ -544,14 +565,15 @@
        pill and became a slab, and the labels floated 20px inside it. */
     margin: 12px 14px 0 20px;
   }
-  /* The plate is placed by measurement, and the measurement lands a frame after the
-     markup. Slid across that gap it jumped from nowhere to its label every time the page
-     mounted -- which is the jerk the control made when the page came back with Websites
-     selected, because that is the label a plate has to travel to. */
+  /* Until the plate has been drawn at its place it is invisible and cannot move: see
+     `armPlate`. The opacity is not decoration -- the unmeasured plate would otherwise be
+     a highlight sitting over the label the reader did not choose. */
   .segmented .seg-thumb {
+    opacity: 0;
     transition: none;
   }
-  .segmented.seg--measured .seg-thumb {
+  .segmented.seg--ready .seg-thumb {
+    opacity: 1;
     transition: transform var(--transition);
   }
   /* Under the finger the plate is where the finger is, so it must not animate. */
