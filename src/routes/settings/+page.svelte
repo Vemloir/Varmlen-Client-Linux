@@ -263,7 +263,7 @@
   <h1>{t("settings.title")}</h1>
 </header>
 
-<main class="scroll" use:persistScroll={preview || navPath()}>
+<main class="scroll" data-scroll use:persistScroll={preview || navPath()}>
   <section>
     <h2>{t("settings.appearance")}</h2>
     <div class="list">

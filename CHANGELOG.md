@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- The scrollbar is drawn by the shell, over the gutter the page already reserves, and it
+  is never drawn by the page again. Two things were wrong with the old one and both were
+  measured: it belongs to the page, so a swipe that moves the page carried a strip of it
+  across the middle of the screen; and hiding it under a swipe was a switch, not a fade,
+  because WebKit does not animate the properties of a scrollbar pseudo-element -- it does
+  not even re-evaluate them when an ancestor's class changes, which is why the previous
+  attempt left 45% of the gutter still painted as a thumb while the finger was down. The
+  bar is a real element now: it stays at the edge, it fades in 90ms for the length of a
+  gesture, and its length and place are read from whichever scroller is live -- the inert
+  half of the split page and the neighbour standing beside the finger do not describe it.
 - The `Apps / Websites` plate follows the finger during a swipe between the halves, the
   way the halves themselves do: its place is a number between the two labels, read from
   the same offset the halves are moved by. Under the finger it does not animate and it is
@@ -9,6 +19,11 @@
   behind it and two highlights read as a control that has lost the selection. Before this
   the plate only moved once the swipe was over, which is the thing that was asked for and
   was not done.
+- The plate no longer slides from nowhere when the page mounts. It is placed by
+  measurement, and the measurement lands a frame after the markup, so across that gap the
+  plate animated from the left edge to its label -- the jerk the control made when the
+  page came back with Websites selected, that being the label with the longest way to go.
+  The transition waits for the measurement.
 - The plate is a pill again. Giving the control a `padding` for the space around it
   widened it to the whole window -- the control's own padding is the plate's inner frame
   -- and left the labels floating 20px inside a slab. The space is a margin.

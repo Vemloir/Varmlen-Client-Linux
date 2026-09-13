@@ -509,7 +509,7 @@
     {/if}
   </section>
 
-  <main class="scroll" use:persistScroll={preview || navPath()}>
+  <main class="scroll" data-scroll use:persistScroll={preview || navPath()}>
 
   {#each subs.ordered as sub (sub.id)}
     {@const isManual = subs.isManualCard(sub)}

@@ -278,7 +278,13 @@
      without being pinned to anything. -->
 <div class="page">
 
-  <div class="segmented" class:seg--dragging={paneDrag.live} role="tablist" bind:this={segEl}>
+  <div
+    class="segmented"
+    class:seg--dragging={paneDrag.live}
+    class:seg--measured={seg.width > 0}
+    role="tablist"
+    bind:this={segEl}
+  >
     <span class="seg-thumb" style={thumbStyle} aria-hidden="true"></span>
     <button
       class:active={tab === "apps"}
@@ -323,6 +329,7 @@
       class="pane"
       inert={tab !== "apps"}
       aria-hidden={tab !== "apps"}
+      data-scroll
       use:persistScroll={preview ? null : SPLIT_APPS}
     >
       {@render modeCard("apps")}
@@ -359,6 +366,7 @@
       class="pane"
       inert={tab === "apps"}
       aria-hidden={tab === "apps"}
+      data-scroll
       use:persistScroll={preview ? null : SPLIT_SITES}
     >
       {@render modeCard("websites")}
@@ -535,6 +543,16 @@
        padding here widened the pill to the whole window -- the plate stopped being a
        pill and became a slab, and the labels floated 20px inside it. */
     margin: 12px 14px 0 20px;
+  }
+  /* The plate is placed by measurement, and the measurement lands a frame after the
+     markup. Slid across that gap it jumped from nowhere to its label every time the page
+     mounted -- which is the jerk the control made when the page came back with Websites
+     selected, because that is the label a plate has to travel to. */
+  .segmented .seg-thumb {
+    transition: none;
+  }
+  .segmented.seg--measured .seg-thumb {
+    transition: transform var(--transition);
   }
   /* Under the finger the plate is where the finger is, so it must not animate. */
   .segmented.seg--dragging .seg-thumb {

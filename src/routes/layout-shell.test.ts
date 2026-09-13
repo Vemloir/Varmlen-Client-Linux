@@ -16,7 +16,7 @@ describe("shell: tabs by swipe, with the new page arriving from the side", () =>
   const css = layout.slice(layout.indexOf("<style>"));
 
   it("hands the content area to the swipe action", () => {
-    expect(shell).toMatch(/<main\s+class="content"\s+use:swipeNav=\{\{/s);
+    expect(shell).toMatch(/<main\s+bind:this=\{contentEl\}\s+class="content"\s+use:swipeNav=\{\{/s);
     // Not `page.url.pathname`: the origin Tauri serves from has no path at all.
     // The strip is longer than the tab bar: the split page counts as two places.
     expect(shell).toMatch(/path: \(\) => zoneOf\(navPath\(\), split\.tab\),/);
@@ -178,6 +178,13 @@ describe("split tunnelling: one scroller, two halves", () => {
     // Under the finger the plate is where the finger is, so it does not animate, and it
     // is the only highlight while it travels.
     expect(source).toMatch(/\.segmented\.seg--dragging \.seg-thumb \{[^}]*transition: none;/s);
+    // The plate is placed by measurement; before the measurement lands it must not
+    // slide, or it jumps from nowhere to its label every time the page mounts.
+    expect(source).toMatch(/\.segmented \.seg-thumb \{[^}]*transition: none;/s);
+    expect(source).toMatch(
+      /\.segmented\.seg--measured \.seg-thumb \{[^}]*transition: transform var\(--transition\);/s,
+    );
+    expect(source).toMatch(/class:seg--measured=\{seg\.width > 0\}/);
     expect(source).toMatch(
       /\.segmented\.seg--dragging :global\(button\.active\) \{[^}]*background: transparent;/s,
     );
@@ -196,6 +203,30 @@ describe("split tunnelling: one scroller, two halves", () => {
 
 describe("shell: nothing in the interface is selectable", () => {
   const css = read("../app.css");
+
+  it("draws the scrollbar itself, so it cannot travel with the page", () => {
+    const app = read("../app.css");
+    const layout = read("./+layout.svelte");
+    const shell = layout.slice(layout.indexOf("<div class=\"app\">"), layout.indexOf("<style>"));
+    const css = layout.slice(layout.indexOf("<style>"));
+    // The bar is a real element in the shell, over the gutter the native one reserves.
+    expect(shell).toMatch(/<div\s+class="scroll-strip"/);
+    expect(css).toMatch(/\.scroll-strip \{[^}]*position: absolute;[^}]*right: 0;[^}]*width: 6px;/s);
+    expect(css).toMatch(/\.scroll-strip \{[^}]*transition: opacity 90ms linear;/s);
+    // Out of the way during a swipe, and back afterwards.
+    expect(css).toMatch(/:global\(\.swiping\) \.scroll-strip \{[^}]*opacity: 0;/s);
+    // The native bar never paints, but still reserves its gutter: the pages' mirrored
+    // padding is built around that 6px.
+    expect(app).toMatch(/::-webkit-scrollbar-thumb \{[^}]*background-color: transparent;/s);
+    expect(app).toMatch(/::-webkit-scrollbar \{[^}]*width: 6px;/s);
+    // And the shell knows which scroller to describe: the live page's, not the inert
+    // half of the split page, not the neighbour standing beside the finger.
+    expect(layout).toMatch(/\.page-shell:not\(\.preview\) \[data-scroll\]/);
+    expect(layout).toMatch(/if \(!el\.hasAttribute\("inert"\)\) return el;/);
+    for (const page of ["./+page.svelte", "./settings/+page.svelte", "./split/+page.svelte"]) {
+      expect(read(page)).toMatch(/data-scroll/);
+    }
+  });
 
   it("turns selection off on everything", () => {
     expect(css).toMatch(

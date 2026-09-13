@@ -9,6 +9,7 @@
   import { paneDrag } from "$lib/pane-drag.svelte";
   import { appSplitAvailable } from "$lib/split-availability";
   import { swipeNav } from "$lib/swipe-nav";
+  import { stripGeometry } from "$lib/scroll-strip";
   import { slideDirection } from "$lib/swipe";
   import { t } from "$lib/i18n.svelte";
   import { core } from "$lib/core.svelte";
@@ -103,6 +104,44 @@
    *  Read through a getter because the action is attached to the content area
    *  before this child exists. */
   let trackEl: HTMLDivElement | undefined = $state();
+
+  /* The scrollbar is drawn here, over the gutter of whichever page is live. It cannot
+     live in the page: the page is the thing a swipe moves, and the bar travelled across
+     the screen with it -- a strip sliding sideways says nothing about where the reader
+     has got to. Drawn as a real element it can also fade, which a scrollbar
+     pseudo-element cannot do at all. */
+  let contentEl = $state<HTMLElement | undefined>();
+  let strip = $state({ top: 0, height: 0, offset: 0, visible: false });
+  let stripTarget: HTMLElement | null = null;
+  let stripResize: ResizeObserver | undefined;
+
+  /** The scroller of the live page. The half of the split page that is off screen is
+   *  inert, so it is not the one the bar should describe. */
+  function liveScroller(): HTMLElement | null {
+    const list = document.querySelectorAll<HTMLElement>(".page-shell:not(.preview) [data-scroll]");
+    for (const el of list) if (!el.hasAttribute("inert")) return el;
+    return null;
+  }
+
+  function syncStrip(node?: HTMLElement | null): void {
+    const el = node ?? stripTarget ?? liveScroller();
+    if (!el) {
+      strip = { top: 0, height: 0, offset: 0, visible: false };
+      return;
+    }
+    stripTarget = el;
+    const g = stripGeometry(el.scrollTop, el.scrollHeight, el.clientHeight);
+    strip = {
+      top: g.top,
+      height: g.height,
+      offset: el.getBoundingClientRect().top,
+      visible: g.visible,
+    };
+    if (stripResize) {
+      stripResize.disconnect();
+      stripResize.observe(el);
+    }
+  }
   /** The neighbour mounted beside the page while a swipe is in progress. */
   let preview = $state<{ path: string; side: "next" | "prev" } | null>(null);
   /** A page that was dragged in is already standing where it belongs; running the
@@ -167,6 +206,35 @@
   // window was just recreated), show "connected" instead of a stale
   // "disconnected".
   onMount(() => void conn.refresh());
+
+  /* The bar follows the page it belongs to: on scroll, when the content under it grows
+     (flags, ping results, subscription cards), when the window changes size, and when
+     the route or the split half changes under it. */
+  onMount(() => {
+    if (typeof ResizeObserver !== "undefined") {
+      stripResize = new ResizeObserver(() => syncStrip());
+    }
+    const onScroll = (event: Event) => {
+      const el = event.target as HTMLElement | null;
+      if (el && typeof el.scrollHeight === "number") syncStrip(el);
+    };
+    const onResize = () => syncStrip();
+    contentEl?.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    window.addEventListener("resize", onResize);
+    void tick().then(() => syncStrip());
+    return () => {
+      contentEl?.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+      stripResize?.disconnect();
+      stripResize = undefined;
+    };
+  });
+
+  $effect(() => {
+    page.url.pathname;
+    split.tab;
+    void tick().then(() => syncStrip());
+  });
 
   // Re-sync when the app returns to the foreground — the VPN may have been
   // toggled from the Quick Settings tile / notification while we were away.
@@ -247,6 +315,7 @@
 
 <div class="app">
   <main
+    bind:this={contentEl}
     class="content"
     use:swipeNav={{
       path: () => zoneOf(navPath(), split.tab),
@@ -289,11 +358,12 @@
          container a stacking context, and every modal inside it then paints under
          the tab pill -- dimmed page, bright pill. -->
     <div class="edge-fade" aria-hidden="true"></div>
-    <!-- The scrollbar goes out of the way while a swipe is in progress. It cannot be
-         faded where it lives: WebKit does not animate the properties of a scrollbar
-         pseudo-element, so the gutter is covered by a real strip that fades, over the
-         padding no content is ever drawn in. -->
-    <div class="scroll-curtain" aria-hidden="true"></div>
+    <div
+      class="scroll-strip"
+      class:scroll-strip--on={strip.visible}
+      style={`transform: translate(0, ${Math.round(strip.offset + strip.top)}px); height: ${Math.round(strip.height)}px`}
+      aria-hidden="true"
+    ></div>
   </main>
 
   <nav class="tabbar">
@@ -331,24 +401,30 @@
     overflow: hidden;
   }
 
-  .scroll-curtain {
+  /* The scrollbar, drawn by the shell. Only its opacity animates: the position and the
+     length are the reader's place in the document and must be exactly where the finger
+     left them. It sits in the gutter the page already reserves for a native bar, so
+     nothing about the page's own measurements changes. */
+  .scroll-strip {
     position: absolute;
     top: 0;
-    bottom: 0;
     right: 0;
-    width: 12px;
-    background: var(--bg);
+    width: 6px;
+    border-radius: 3px;
+    background: var(--border);
     opacity: 0;
     transition: opacity 90ms linear;
     pointer-events: none;
     z-index: 4;
   }
-  /* `:global`, because the class is put on the element at runtime by the swipe
-     action: written the obvious way, Svelte reads the class as one this component
-     never uses and drops the rule from the stylesheet entirely -- measured, the rule
-     was simply not in the built CSS. */
-  :global(.swiping) .scroll-curtain {
+  .scroll-strip--on {
     opacity: 1;
+  }
+  /* Out of the way while a swipe is in progress -- and back the moment it is over.
+     `:global`, because the class is put on the element at runtime by the swipe action,
+     and Svelte drops a selector whose class the component never mentions. */
+  :global(.swiping) .scroll-strip {
+    opacity: 0;
   }
 
   /* A band at the bottom edge that ends just above the tab pill, so a list leaves

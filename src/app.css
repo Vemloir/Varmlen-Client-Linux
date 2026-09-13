@@ -183,8 +183,15 @@ a {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+/* The bar is never drawn by the scroller. It is drawn by the shell instead, over the
+   same gutter -- see +layout.svelte. Two reasons, and the second one is a measurement:
+   a bar inside the page travels with the page when a swipe moves it, and the properties
+   of a scrollbar pseudo-element cannot be animated at all, so hiding one under a swipe
+   is a switch and not a fade. Leaving this element transparent keeps the 6px gutter it
+   reserves, which is what the pages' mirrored padding is built around, so nothing about
+   the layout changes. */
 ::-webkit-scrollbar-thumb {
-  background-color: var(--border);
+  background-color: transparent;
   border-radius: 3px;
 }
 /* Touch devices (Android): no always-on scrollbar strip. */
