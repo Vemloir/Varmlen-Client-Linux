@@ -15,6 +15,21 @@ const split = readFileSync(new URL("../routes/split/+page.svelte", import.meta.u
 const settings = readFileSync(new URL("../routes/settings/+page.svelte", import.meta.url), "utf8");
 
 describe("the neighbour under the finger", () => {
+  it("stands the neighbour on the half the page will open on", () => {
+    // The split page opens where the reader left it. If the neighbour were the half the
+    // direction of the swipe points at, the page would arrive on one half and slide to
+    // the other the moment it landed.
+    expect(source).toMatch(
+      /const neighbourTo = \(from: string, direction: "next" \| "prev"\): string \| null =>/,
+    );
+    expect(source).toMatch(/options\.landing\?\.\(zone\) \?\? zone/);
+    expect(layout).toMatch(/landing: landingZone,/);
+    expect(layout).toMatch(
+      /if \(routeOf\(zone\) !== "\/split" \|\| navPath\(\) === "\/split"\) return zone;/,
+    );
+    expect(layout).toMatch(/return entryZone\(split\.tab, appSplitAvailable\(settings\.vpnMode\)\);/);
+  });
+
   it("drags the track that carries both pages, not the page alone", () => {
     expect(source).toMatch(/track\?: \(\) => HTMLElement \| null;/);
     expect(source).toMatch(/const track = \(\) => options\.track\?\.\(\) \?\? null;/);
@@ -24,7 +39,7 @@ describe("the neighbour under the finger", () => {
 
   it("mounts the neighbour the gesture is heading for", () => {
     expect(source).toMatch(/preview\?: \(path: string \| null\) => void;/);
-    expect(source).toMatch(/const neighbour = neighbourPath\(options\.path\(\), direction, order\(\)\);/);
+    expect(source).toMatch(/const neighbour = neighbourTo\(options\.path\(\), direction\);/);
     expect(source).toMatch(/showPreview\(neighbour\);/);
     expect(layout).toMatch(/preview: setPreview,/);
     expect(layout).toMatch(/<HomePage preview=\{preview\.path\} \/>/);
@@ -54,7 +69,9 @@ describe("the neighbour under the finger", () => {
     expect(source).toMatch(/const PREVIEW_START_PX = 4;/);
     const slop = source.slice(source.indexOf("if (!dragging) {"));
     expect(slop.slice(0, 900)).toMatch(/Math\.abs\(dx\) >= PREVIEW_START_PX/);
-    expect(slop.slice(0, 900)).toMatch(/showPreview\(neighbourPath\(options\.path\(\), dx < 0 \? "next" : "prev", order\(\)\)\);/);
+    expect(slop.slice(0, 900)).toMatch(
+      /showPreview\(neighbourTo\(options\.path\(\), dx < 0 \? "next" : "prev"\)\);/,
+    );
     // A refused gesture keeps its neighbour warm for a moment, because a refused
     // swipe is usually tried again straight away.
     expect(source).toMatch(/const WARM_MS = 1200;/);

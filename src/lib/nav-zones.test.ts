@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { routeOf, tabOf, zoneOf, zoneOrder } from "./nav-zones";
+import {
+  SPLIT_APPS,
+  SPLIT_SITES,
+  entryZone,
+  routeOf,
+  tabOf,
+  zoneOf,
+  zoneOrder,
+} from "./nav-zones";
 
 /**
  * The places a swipe travels between, which are not the routes. The tab bar has three
@@ -37,6 +45,16 @@ describe("the swipe strip", () => {
     expect(tabOf("/split/sites")).toBe("websites");
     expect(tabOf("/settings")).toBe(null);
     expect(tabOf("/")).toBe(null);
+  });
+
+  it("opens the split page on the half that was left selected", () => {
+    expect(entryZone("websites", true)).toBe(SPLIT_SITES);
+    expect(entryZone("apps", true)).toBe(SPLIT_APPS);
+    // Without application routing there is no applications place to land on.
+    expect(entryZone("apps", false)).toBe(SPLIT_SITES);
+    // The place it returns is always in the strip it is asked about.
+    expect(zoneOrder(false)).toContain(entryZone("apps", false));
+    expect(zoneOrder(true)).toContain(entryZone("apps", true));
   });
 
   it("walks one place either way from anywhere in the strip", () => {

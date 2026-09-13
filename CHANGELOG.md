@@ -19,6 +19,12 @@
   behind it and two highlights read as a control that has lost the selection. Before this
   the plate only moved once the swipe was over, which is the thing that was asked for and
   was not done.
+- The split page opens on the half it was left on. A gesture arriving from another page
+  used to land on whichever half the direction of the swipe pointed at -- from Home on
+  Applications, from Settings on Websites -- and the plate jumped to the remembered half
+  the moment the page landed. The landing place is now the saved half, and the neighbour
+  standing beside the finger stands for that half too, so nothing moves after the landing.
+  A gesture on the page itself still moves between its halves.
 - The plate no longer slides from nowhere when the page mounts. It is placed by
   measurement, and the measurement lands a frame after the markup, so across that gap the
   plate animated from the left edge to its label -- the jerk the control made when the

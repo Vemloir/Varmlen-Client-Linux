@@ -5,7 +5,7 @@
   import { goto } from "$app/navigation";
   import { NAV } from "$lib/nav";
   import { navPath } from "$lib/nav-path";
-  import { routeOf, tabOf, zoneOf, zoneOrder } from "$lib/nav-zones";
+  import { entryZone, routeOf, tabOf, zoneOf, zoneOrder } from "$lib/nav-zones";
   import { paneDrag } from "$lib/pane-drag.svelte";
   import { appSplitAvailable } from "$lib/split-availability";
   import { swipeNav } from "$lib/swipe-nav";
@@ -157,6 +157,15 @@
     }
     const order = zoneOrder(appsAvailable);
     preview = { path: to, side: order.indexOf(to) >= order.indexOf(currentZone) ? "next" : "prev" };
+  }
+
+  /** A page opens where the reader left it. A gesture that arrives at the split page
+   *  from another page lands on the half that is selected there, not on the half the
+   *  direction of the swipe happens to point at; a gesture on the page itself still
+   *  moves between its halves. */
+  function landingZone(zone: string): string {
+    if (routeOf(zone) !== "/split" || navPath() === "/split") return zone;
+    return entryZone(split.tab, appSplitAvailable(settings.vpnMode));
   }
 
   /** A zone is reached either by navigating or by moving the split page between its
@@ -325,6 +334,7 @@
       // Split tunnelling is one route with two sections: a swipe between them moves
       // the sections, not the window, because the pill above them is chrome.
       panes: (offset) => (offset === null ? paneDrag.release() : paneDrag.drag(offset)),
+    landing: landingZone,
       track: () => trackEl ?? null,
       preview: setPreview,
     }}

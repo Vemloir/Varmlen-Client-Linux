@@ -81,6 +81,11 @@ export interface SwipeNavOptions {
    *  down, and null when it is gone, which is when the page's own transition takes
    *  over from exactly there. */
   panes?: (offset: number | null) => void;
+  /** Where a gesture arriving at a place really lands. The split page opens on the half
+   *  that was left selected there, and the neighbour standing beside the finger has to
+   *  stand for that same half -- otherwise the page arrives on one half and slides to the
+   *  other the moment it lands, which is the jerk a returning reader sees. */
+  landing?: (zone: string) => string;
 }
 
 export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
@@ -120,6 +125,12 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
     if (!paneGesture) return;
     paneGesture = false;
     options.panes?.(null);
+  };
+
+  /** The neighbour in a direction, as the place the gesture will actually land on. */
+  const neighbourTo = (from: string, direction: "next" | "prev"): string | null => {
+    const zone = neighbourPath(from, direction, order());
+    return zone === null ? null : (options.landing?.(zone) ?? zone);
   };
 
   const move = (dx: number, transition: "settle" | "none" | "catch" = "none") => {
@@ -238,7 +249,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
         // Still inside the slop. If the finger is going sideways, this is where the
         // neighbour is paid for -- see PREVIEW_START_PX.
         if (Math.abs(dx) >= PREVIEW_START_PX && Math.abs(dx) >= 2 * Math.abs(dy)) {
-          showPreview(neighbourPath(options.path(), dx < 0 ? "next" : "prev", order()));
+          showPreview(neighbourTo(options.path(), dx < 0 ? "next" : "prev"));
         }
         return;
       }
@@ -265,7 +276,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       releaseControl();
     }
     const direction: SwipeDirection = dx < 0 ? "next" : "prev";
-    const neighbour = neighbourPath(options.path(), direction, order());
+    const neighbour = neighbourTo(options.path(), direction);
     // Whether this frame arrives late is decided before the clock is moved.
     const stalled = event.timeStamp - lastMoveAt > STALL_MS;
     lastMoveAt = event.timeStamp;
@@ -297,7 +308,7 @@ export function swipeNav(node: HTMLElement, options: SwipeNavOptions) {
       velocityOver(samples),
       node.getBoundingClientRect().width,
     );
-    const target = direction ? neighbourPath(options.path(), direction, order()) : null;
+    const target = direction ? neighbourTo(options.path(), direction) : null;
     if (target && wasDragging && sameRoute(target)) {
       // Nothing to land: the window never moved. Let go of the finger, and the
       // sections travel the rest of the way under their own transition.

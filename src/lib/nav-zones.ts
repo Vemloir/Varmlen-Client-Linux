@@ -37,6 +37,14 @@ export function zoneOrder(appsAvailable: boolean): string[] {
   );
 }
 
+/** The place a gesture arriving at the split page from somewhere else should land on:
+ *  the half the reader left selected, because a page opens where it was left and not
+ *  where the direction of the swipe happens to point. Applications win only if they can
+ *  actually be routed, otherwise the strip has no such place to stand. */
+export function entryZone(splitTab: SplitTab, appsAvailable: boolean): string {
+  return splitTab === "apps" && appsAvailable ? SPLIT_APPS : SPLIT_SITES;
+}
+
 /** The route a zone lives on. */
 export function routeOf(zone: string): string {
   return zone.startsWith("/split") ? "/split" : zone;
