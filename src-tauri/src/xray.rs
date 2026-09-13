@@ -1574,7 +1574,7 @@ fn build_route_rules(
         .iter()
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
-        .map(|site| site_domain_rule(site))
+        .map(site_domain_rule)
         .collect();
     if !domains.is_empty() {
         let mut rule = json!({ "type": "field", "domain": domains });

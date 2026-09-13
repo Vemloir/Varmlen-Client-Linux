@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 - The scrollbar is drawn by the shell, over the gutter the page already reserves, and it
   is never drawn by the page again. Two things were wrong with the old one and both were
