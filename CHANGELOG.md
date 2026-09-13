@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- The `Apps / Websites` plate follows the finger during a swipe between the halves, the
+  way the halves themselves do: its place is a number between the two labels, read from
+  the same offset the halves are moved by. Under the finger it does not animate and it is
+  the only highlight, because the label it is leaving would otherwise keep its own panel
+  behind it and two highlights read as a control that has lost the selection. Before this
+  the plate only moved once the swipe was over, which is the thing that was asked for and
+  was not done.
+- The plate is a pill again. Giving the control a `padding` for the space around it
+  widened it to the whole window -- the control's own padding is the plate's inner frame
+  -- and left the labels floating 20px inside a slab. The space is a margin.
 - Split tunnelling keeps its `Apps / Websites` pill where it is and moves the chosen
   section under it. The pill is not pinned to a scroller -- it simply is not inside one:
   the page is a column of chrome over two halves, and each half scrolls on its own. That

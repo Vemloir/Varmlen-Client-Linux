@@ -40,18 +40,36 @@
   // which box that is. So the active button's own offsetLeft/offsetWidth drive it,
   // the same way the location menu's width is measured instead of `max-content`.
   let segEl = $state<HTMLDivElement | undefined>();
-  let thumbStyle = $state("");
+  let panesEl = $state<HTMLDivElement | undefined>();
+  /** Where the two labels sit inside the plate, measured, not guessed. */
+  let seg = $state({ first: 0, step: 0, width: 0 });
   function syncThumb(): void {
     const host = segEl;
     if (!host) return;
     const btns = Array.from(host.querySelectorAll("button")) as HTMLElement[];
     if (btns.length === 0) return;
     const first = btns[0];
-    const active = btns.find((b) => b.classList.contains("active")) ?? first;
-    thumbStyle =
-      `left: ${first.offsetLeft}px; width: ${active.offsetWidth}px; ` +
-      `transform: translateX(${active.offsetLeft - first.offsetLeft}px);`;
+    const second = btns[1];
+    seg = {
+      first: first.offsetLeft,
+      width: first.offsetWidth,
+      step: second ? second.offsetLeft - first.offsetLeft : 0,
+    };
   }
+  /* Which label the plate is under, as a number between the two. At rest it is exactly
+     one of them; under a swipe between the halves it is wherever the finger has got to,
+     so the control above the halves says the same thing the halves do. */
+  const segPos = $derived.by(() => {
+    const base = tab === "apps" ? 0 : 1;
+    if (!paneDrag.live) return base;
+    const span = panesEl?.clientWidth ?? 0;
+    if (span <= 0) return base;
+    const pos = base - paneDrag.offset / span;
+    return pos < 0 ? 0 : pos > 1 ? 1 : pos;
+  });
+  const thumbStyle = $derived(
+    `left: ${seg.first}px; width: ${seg.width}px; transform: translateX(${segPos * seg.step}px);`,
+  );
   let segResize: ResizeObserver | undefined;
   $effect(() => {
     tab;
@@ -260,7 +278,7 @@
      without being pinned to anything. -->
 <div class="page">
 
-  <div class="segmented" role="tablist" bind:this={segEl}>
+  <div class="segmented" class:seg--dragging={paneDrag.live} role="tablist" bind:this={segEl}>
     <span class="seg-thumb" style={thumbStyle} aria-hidden="true"></span>
     <button
       class:active={tab === "apps"}
@@ -296,6 +314,7 @@
        the transition continues from there instead of snapping. They are set here and
        read by each half, because the halves are what move. -->
   <div
+    bind:this={panesEl}
     class="panes"
     class:panes--dragging={paneDrag.live}
     style={`--idx: ${tab === "apps" ? 0 : 1}; --pan: ${paneDrag.offset}px`}
@@ -501,6 +520,7 @@
     inset: 56px 0 0 0;
     display: flex;
     flex-direction: column;
+    gap: 12px;
     overflow: hidden;
   }
 
@@ -511,7 +531,21 @@
     align-self: stretch;
     display: flex;
     flex-shrink: 0;
-    padding: 12px 14px 12px 20px;
+    /* A margin, not padding. The control's own padding is the plate's inner frame, and
+       padding here widened the pill to the whole window -- the plate stopped being a
+       pill and became a slab, and the labels floated 20px inside it. */
+    margin: 12px 14px 0 20px;
+  }
+  /* Under the finger the plate is where the finger is, so it must not animate. */
+  .segmented.seg--dragging .seg-thumb {
+    transition: none;
+  }
+  /* And it is the only highlight while it is being dragged: the label it is leaving
+     would otherwise keep its own panel behind it, and two highlights read as a control
+     that has lost track of the selection. */
+  .segmented.seg--dragging :global(button.active) {
+    background: transparent;
+    box-shadow: none;
   }
   .split-unavailable {
     margin: 0 14px 0 20px;

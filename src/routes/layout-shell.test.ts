@@ -169,6 +169,24 @@ describe("split tunnelling: one scroller, two halves", () => {
     expect(source).toMatch(/class="pane"[^>]*inert=\{tab === "apps"\}\s*aria-hidden=\{tab === "apps"\}/s);
   });
 
+  it("keeps the plate a plate, and lets the finger move it", () => {
+    // The control's own padding is the plate's inner frame. Spacing around it has to be
+    // a margin: as padding it widened the pill to the whole window and floated the
+    // labels 20px inside it.
+    expect(source).toMatch(/\.segmented \{[^}]*margin: 12px 14px 0 20px;/s);
+    expect(source.slice(source.indexOf("<style>"))).not.toMatch(/\.segmented \{[^}]*padding:/s);
+    // Under the finger the plate is where the finger is, so it does not animate, and it
+    // is the only highlight while it travels.
+    expect(source).toMatch(/\.segmented\.seg--dragging \.seg-thumb \{[^}]*transition: none;/s);
+    expect(source).toMatch(
+      /\.segmented\.seg--dragging :global\(button\.active\) \{[^}]*background: transparent;/s,
+    );
+    // Its place is a number between the two labels, read from the same finger that moves
+    // the halves -- so the control above says what the halves are doing.
+    expect(source).toMatch(/const segPos = \$derived\.by\(\(\) => \{[\s\S]*?base - paneDrag\.offset \/ span/);
+    expect(source).toMatch(/transform: translateX\(\$\{segPos \* seg\.step\}px\)/);
+  });
+
   it("carries one mode card per half, because the categories are independent", () => {
     expect(source).toMatch(/{@render modeCard\("apps"\)}/);
     expect(source).toMatch(/{@render modeCard\("websites"\)}/);
