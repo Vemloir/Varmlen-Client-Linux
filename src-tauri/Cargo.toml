@@ -47,3 +47,8 @@ tauri-plugin-single-instance = "2"
 # File picker via the XDG desktop portal — shows the user's own DE file manager
 # dialog (with proper search). Cross-desktop, not GNOME-specific.
 rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "tokio"] }
+
+# The WebKit view under the window, to reload the page when its web process dies.
+# Same version and features wry already builds.
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = { version = "=2.0.2", features = ["v2_40"] }

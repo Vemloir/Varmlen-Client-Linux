@@ -4620,6 +4620,7 @@ dependencies = [
  "tokio",
  "url",
  "varmlend",
+ "webkit2gtk",
  "zip",
 ]
 

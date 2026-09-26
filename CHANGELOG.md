@@ -2,6 +2,17 @@
 
 ## 0.4.0
 
+- The window no longer turns grey for good. The page runs in WebKit's own web
+  process, and when that process dies -- WebKitGTK 2.52 has a JavaScriptCore crash
+  that tends to arrive after the window has sat idle, and the memory limit can end
+  it too -- WebKit leaves the view empty. Nothing listened for that, so the tray and
+  the tunnel went on running behind a grey window until the app was restarted. The
+  page is now reloaded into a new web process the moment the old one is gone, at
+  most three times in two minutes so a page that crashes on load cannot loop.
+  Nothing is lost on the way: subscriptions and settings live in local storage and
+  the tunnel's state is read back from the daemon. Measured in the running app: the
+  web process killed, a new one up and the interface back within a second, where
+  the build before this stayed on a dead frame.
 - The scrollbar is drawn by the shell, over the gutter the page already reserves, and it
   is never drawn by the page again. Two things were wrong with the old one and both were
   measured: it belongs to the page, so a swipe that moves the page carried a strip of it

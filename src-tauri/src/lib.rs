@@ -9,6 +9,8 @@ mod storage;
 mod subscription;
 mod tray;
 mod vpn;
+#[cfg(target_os = "linux")]
+mod webview_recovery;
 mod xray;
 
 use std::time::Duration;
@@ -405,6 +407,9 @@ pub fn run() {
             // so the app has a working core on first launch even when GitHub is
             // unreachable (censored networks). No-op once a core exists.
             core::seed_bundled_core(app.handle());
+            // A dead web process leaves the window grey for good; reload instead.
+            #[cfg(target_os = "linux")]
+            webview_recovery::install(app.handle());
             // System tray + start-minimized are desktop-only.
             #[cfg(desktop)]
             {
