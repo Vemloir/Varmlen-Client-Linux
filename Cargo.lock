@@ -4598,7 +4598,7 @@ dependencies = [
 
 [[package]]
 name = "varmlen"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "base64 0.22.1",
  "flate2",
@@ -4626,7 +4626,7 @@ dependencies = [
 
 [[package]]
 name = "varmlen-net"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "caps",
  "libc",
@@ -4635,7 +4635,7 @@ dependencies = [
 
 [[package]]
 name = "varmlend"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "async-trait",
  "futures-util",

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.1
+
+- Per-app split no longer cuts Xray off from the network. The split laid its
+  default route in table 100, the table the network helper keeps for Xray's own
+  dials, and tore it down with a flush of that table. Clearing the last excluded
+  application, switching applications to selective mode, or reconnecting with a
+  changed list therefore removed the physical route while the tunnel stayed up:
+  every direct outbound looped back into the tun, which in selective mode is all
+  traffic outside the whitelist. The split now owns table 102 and a rule of its
+  own, with the same LAN exceptions, and removes only those; recovery knows the
+  new table, and a split kept across a reconnect lays its routing again.
+- A selective website list works with applications in general mode. The default
+  outbound followed the applications' mode alone, so everything went through the
+  VPN and the website list did nothing. Either list in selective mode now makes
+  the default direct.
+
 ## 0.4.0
 
 - The window no longer turns grey for good. The page runs in WebKit's own web
