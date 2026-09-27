@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { navPath } from "$lib/nav-path";
-  import { persistScroll } from "$lib/scroll-memory";
   import { theme } from "$lib/theme.svelte";
   import { MTU_MAX, MTU_MIN } from "$lib/mtu";
   import { settings, type VpnMode, type PingMethod, type LogLevel } from "$lib/settings.svelte";
@@ -15,10 +13,11 @@
   import { getVersion } from "@tauri-apps/api/app";
 
   interface Props {
-    /** Path of the tab this page is standing in as; empty when it is the page. */
-    preview?: string;
+    /** Whether Settings is the page on screen. It stays mounted beside the others,
+     *  so work that belongs to opening it waits for this. */
+    active?: boolean;
   }
-  let { preview = "" }: Props = $props();
+  let { active = false }: Props = $props();
 
   const logLevelOptions = $derived([
     { value: "debug", label: "debug" },
@@ -105,7 +104,6 @@
   let autostartMinimized = $state(false);
   let appVersion = $state("…");
   onMount(async () => {
-    if (preview) return;
     try {
       const s = await autostartStatus();
       autostart = s.enabled;
@@ -115,7 +113,6 @@
     }
   });
   onMount(async () => {
-    if (preview) return;
     try {
       appVersion = await getVersion();
     } catch {
@@ -132,7 +129,6 @@
     }
   }
   onMount(() => {
-    if (preview) return;
     refreshNotif();
     const onVis = () => { if (document.visibilityState === "visible") refreshNotif(); };
     document.addEventListener("visibilitychange", onVis);
@@ -187,7 +183,7 @@
 
   // Refresh the core's status when Settings opens (cheap GitHub check).
   $effect(() => {
-    if (preview) return;
+    if (!active) return;
     void core.check();
   });
 
@@ -263,7 +259,7 @@
   <h1>{t("settings.title")}</h1>
 </header>
 
-<main class="scroll" data-scroll use:persistScroll={preview || navPath()}>
+<main class="scroll" data-scroll>
   <section>
     <h2>{t("settings.appearance")}</h2>
     <div class="list">
