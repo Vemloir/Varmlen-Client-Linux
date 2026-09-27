@@ -255,8 +255,15 @@ input[type="search"]::-webkit-search-cancel-button {
   background: var(--bg-elev);
   color: var(--text);
 }
-.btn:hover:not(:disabled) {
-  background: var(--bg-elev-2);
+@media (hover: hover) {
+  .btn:hover:not(:disabled) {
+    background: var(--bg-elev-2);
+  }
+}
+@media (hover: none) {
+  .btn:active:not(:disabled) {
+    background: var(--bg-elev-2);
+  }
 }
 .btn-primary {
   background: var(--accent);
@@ -264,18 +271,34 @@ input[type="search"]::-webkit-search-cancel-button {
   border-color: var(--accent);
   font-weight: 600;
 }
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
+@media (hover: hover) {
+  .btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+}
+@media (hover: none) {
+  .btn-primary:active:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
 }
 .btn-ghost {
   border: none;
   padding: 8px 12px;
   color: var(--text-muted);
 }
-.btn-ghost:hover:not(:disabled) {
-  background: var(--bg-elev-2);
-  color: var(--text);
+@media (hover: hover) {
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--bg-elev-2);
+    color: var(--text);
+  }
+}
+@media (hover: none) {
+  .btn-ghost:active:not(:disabled) {
+    background: var(--bg-elev-2);
+    color: var(--text);
+  }
 }
 
 .card {
@@ -421,8 +444,15 @@ input[type="search"]::-webkit-search-cancel-button {
 .list-row.tappable {
   cursor: pointer;
 }
-.list-row.tappable:hover {
-  background: var(--bg-elev-2);
+@media (hover: hover) {
+  .list-row.tappable:hover {
+    background: var(--bg-elev-2);
+  }
+}
+@media (hover: none) {
+  .list-row.tappable:active {
+    background: var(--bg-elev-2);
+  }
 }
 /* A split row is not tappable as a whole -- it carries a switch and a remove button --
    but the pointer still has to say which row it is on, the way the settings rows and

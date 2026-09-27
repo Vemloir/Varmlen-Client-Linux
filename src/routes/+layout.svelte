@@ -518,6 +518,11 @@
   .tab:last-child {
     border-radius: 0 999px 999px 0;
   }
-  .tab:hover { color: var(--text); }
+  @media (hover: hover) {
+    .tab:hover { color: var(--text); }
+  }
+  @media (hover: none) {
+    .tab:active { color: var(--text); }
+  }
   .tab.active { color: var(--accent); }
 </style>
