@@ -310,7 +310,7 @@ fn extract_xray(archive: &[u8]) -> Result<Vec<u8>, DaemonError> {
         let mut entry = zip
             .by_index(index)
             .map_err(|error| failed(format!("Xray archive entry: {error}")))?;
-        if !entry.is_file() || entry.name() != "xray" {
+        if !entry.is_file() || !entry.name().is_ok_and(|name| name == "xray") {
             continue;
         }
         let mut binary = Vec::new();
