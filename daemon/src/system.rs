@@ -15,6 +15,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, timeout, Duration, Instant};
 
+use crate::cores::CoreStore;
 use crate::dns::{DnsBackend, DnsGuard, SystemDnsBackend};
 use crate::lifecycle::LifecycleBackend;
 use crate::log_store::LogStore;
@@ -354,7 +355,14 @@ pub async fn run_proxy_ping(
     owner_uid: u32,
     request: &ProxyPingRequest,
 ) -> Result<u32, DaemonError> {
-    let xray = Path::new(INSTALLED_XRAY);
+    // A probe measures the location, not the core: when the selected version
+    // has not reached the daemon yet, the bundled Xray still answers it.
+    let xray = request
+        .core
+        .as_deref()
+        .and_then(|tag| CoreStore::installed(owner_uid).resolve(tag).ok())
+        .unwrap_or_else(|| PathBuf::from(INSTALLED_XRAY));
+    let xray = xray.as_path();
     ensure_trusted_binary(xray)?;
     let template_ports = request.effective_socks_ports();
     let dns_probe_urls = request.effective_dns_probe_urls();
@@ -550,7 +558,9 @@ fn write_private_file(path: &Path, content: &str) -> Result<(), DaemonError> {
 
 pub struct SystemLifecycleBackend {
     owner_uid: u32,
+    /// The bundled Xray, run when a connect names no downloaded version.
     xray_path: PathBuf,
+    cores: CoreStore,
     net_helper_path: PathBuf,
     runtime_dir: PathBuf,
     xray: Option<Child>,
@@ -582,6 +592,7 @@ impl SystemLifecycleBackend {
         Self {
             owner_uid,
             xray_path,
+            cores: CoreStore::installed(owner_uid),
             net_helper_path,
             runtime_dir,
             xray: None,
@@ -611,6 +622,17 @@ impl SystemLifecycleBackend {
 
     fn config_path(&self) -> PathBuf {
         self.runtime_dir.join("xray.json")
+    }
+
+    /// The Xray a connect asked for: a downloaded version from the core
+    /// store, or the bundled one.
+    fn xray_for(&self, request: &ConnectRequest) -> Result<PathBuf, DaemonError> {
+        let path = match request.core.as_deref() {
+            Some(tag) => self.cores.resolve(tag)?,
+            None => self.xray_path.clone(),
+        };
+        ensure_trusted_binary(&path)?;
+        Ok(path)
     }
 
     fn validation_path(&self) -> PathBuf {
@@ -644,8 +666,8 @@ impl SystemLifecycleBackend {
         result.map_err(internal_io("write private Xray configuration"))
     }
 
-    async fn run_xray_validation(&self, path: &Path) -> Result<(), DaemonError> {
-        let output = Command::new(&self.xray_path)
+    async fn run_xray_validation(&self, xray: &Path, path: &Path) -> Result<(), DaemonError> {
+        let output = Command::new(xray)
             .args(["run", "-test", "-c"])
             .arg(path)
             .env_clear()
@@ -673,7 +695,11 @@ impl SystemLifecycleBackend {
         ))
     }
 
-    async fn run_validation_egress_probe(&self, config: &str) -> Result<(), DaemonError> {
+    async fn run_validation_egress_probe(
+        &self,
+        xray: &Path,
+        config: &str,
+    ) -> Result<(), DaemonError> {
         let template_ports = validation_config_ports(config)?;
         let mut last_error = None;
         for _ in 0..4 {
@@ -698,10 +724,11 @@ impl SystemLifecycleBackend {
             let config = validation_config_with_ports(config, &ports)?;
             validate_ping_xray_document(&config, &ports)?;
             self.write_private(&self.validation_path(), &config)?;
-            self.run_xray_validation(&self.validation_path()).await?;
+            self.run_xray_validation(xray, &self.validation_path())
+                .await?;
             drop(reservations);
 
-            let mut child = Command::new(&self.xray_path)
+            let mut child = Command::new(xray)
                 .args(["run", "-c"])
                 .arg(self.validation_path())
                 .env_clear()
@@ -924,7 +951,7 @@ impl LifecycleBackend for SystemLifecycleBackend {
     }
 
     async fn validate(&mut self, request: &ConnectRequest) -> Result<(), DaemonError> {
-        ensure_trusted_binary(&self.xray_path)?;
+        let xray = self.xray_for(request)?;
         ensure_trusted_binary(&self.net_helper_path)?;
         validate_xray_document(&request.xray_config, request.mode == ConnectionMode::Tun)?;
         let validation_ports = validation_config_ports(&request.validation_config)?;
@@ -933,9 +960,9 @@ impl LifecycleBackend for SystemLifecycleBackend {
         self.write_private(&self.validation_path(), &request.validation_config)?;
         self.write_private(&self.config_path(), &request.xray_config)?;
         if !tun_devices_already_live(&request.xray_config, Path::new("/sys/class/net")) {
-            self.run_xray_validation(&self.config_path()).await?;
+            self.run_xray_validation(&xray, &self.config_path()).await?;
         }
-        self.run_validation_egress_probe(&request.validation_config)
+        self.run_validation_egress_probe(&xray, &request.validation_config)
             .await
     }
 
@@ -1028,6 +1055,7 @@ impl LifecycleBackend for SystemLifecycleBackend {
     }
 
     async fn start_data_plane(&mut self, request: &ConnectRequest) -> Result<(), DaemonError> {
+        let xray = self.xray_for(request)?;
         self.prepare_runtime_dir()?;
         self.write_private(&self.config_path(), &request.xray_config)?;
         self.log_store
@@ -1035,7 +1063,7 @@ impl LifecycleBackend for SystemLifecycleBackend {
             .await
             .clear()
             .map_err(internal_io("clear Xray log"))?;
-        let mut child = Command::new(&self.xray_path)
+        let mut child = Command::new(&xray)
             .args(["run", "-c"])
             .arg(self.config_path())
             .env_clear()
@@ -1047,7 +1075,7 @@ impl LifecycleBackend for SystemLifecycleBackend {
             .map_err(|error| {
                 DaemonError::new(
                     DaemonErrorCode::XrayStartFailed,
-                    format!("could not start installed Xray: {error}"),
+                    format!("could not start Xray {}: {error}", xray.display()),
                 )
             })?;
         if let Some(stdout) = child.stdout.take() {

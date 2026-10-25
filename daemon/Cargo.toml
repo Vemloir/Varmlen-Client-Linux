@@ -21,8 +21,10 @@ nix = { version = "0.30", features = ["fanotify", "fs"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "socks", "http2"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 thiserror = "2"
 tokio = { version = "1", features = ["io-util", "macros", "net", "process", "rt-multi-thread", "sync", "time"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 tempfile = "3"

@@ -110,13 +110,17 @@ class CoreStore {
     }
   }
 
-  /** Switch to an already-downloaded version. */
+  /** Switch to an already-downloaded version. The daemon picks the core at
+   *  connect, so a live tunnel is reconnected onto it, the way a settings
+   *  change is applied. */
   async activate(tag: string): Promise<void> {
     const t = stripV(tag);
     this.switchingTag = t;
     this.error = null;
     try {
+      const changed = !this.isActive(t);
       await coreActivate(this.kind, t);
+      if (changed && conn.status === "connected") void conn.connect();
       await this.check();
     } catch (e) {
       this.error = msg(e);

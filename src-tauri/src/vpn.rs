@@ -171,6 +171,12 @@ pub async fn vpn_connect(
         } else {
             Vec::new()
         };
+        // A version selected before the daemon ran downloaded cores is not in
+        // its store yet; installing is a no-op once it is.
+        let core = crate::core::daemon_core(&app);
+        if let Some(tag) = &core {
+            crate::core::ensure_daemon_core(&app, tag).await?;
+        }
         let request = ConnectRequest {
             mode: connection_mode,
             xray_config,
@@ -179,6 +185,7 @@ pub async fn vpn_connect(
             excluded_apps,
             killswitch,
             allow_lan,
+            core,
         };
         let mut daemon = crate::daemon_client::DaemonClient::connect_or_start_installed()
             .await
@@ -187,7 +194,6 @@ pub async fn vpn_connect(
             .request(DaemonCommand::Connect(request))
             .await
             .map_err(|error| error.to_string())?;
-        let _ = app;
         Ok(response_from_daemon(state))
     }
 
@@ -454,6 +460,7 @@ pub async fn proxy_get_ping(
                 .map_err(|error| error.to_string())?;
         let timeout_ms = timeout_ms.unwrap_or(5000);
         let dns_probe_urls = crate::xray::dns_probe_urls(&server);
+        let core = crate::core::daemon_core(&app);
         let mut daemon = crate::daemon_client::DaemonClient::connect_or_start_installed()
             .await
             .map_err(|error| error.to_string())?;
@@ -463,6 +470,7 @@ pub async fn proxy_get_ping(
             socks_ports: socks_ports.clone(),
             dns_probe_urls: dns_probe_urls.clone(),
             timeout_ms,
+            core: core.clone(),
         };
         let state = match daemon
             .request(DaemonCommand::ProxyPing(ProxyPingRequest { ..request }))
@@ -487,6 +495,7 @@ pub async fn proxy_get_ping(
                         socks_ports: Vec::new(),
                         dns_probe_urls,
                         timeout_ms: timeout_ms.min(LEGACY_MAX_PING_TIMEOUT_MS),
+                        core,
                     }))
                     .await
                     .map_err(|error| error.to_string())?

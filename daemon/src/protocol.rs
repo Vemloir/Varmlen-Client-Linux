@@ -10,6 +10,8 @@ const MAX_APP_SELECTOR_BYTES: usize = 4096;
 const MAX_PING_HOST_BYTES: usize = 253;
 const MAX_DNS_PROBE_URLS: usize = 8;
 const MAX_DNS_PROBE_URL_BYTES: usize = 2048;
+const MAX_CORE_TAG_BYTES: usize = 64;
+const MAX_CORE_ARCHIVE_PATH_BYTES: usize = 4096;
 const MIN_PING_TIMEOUT_MS: u32 = 100;
 /// The longest probe a client may ask for.
 ///
@@ -35,6 +37,26 @@ pub struct ConnectRequest {
     pub excluded_apps: Vec<String>,
     pub killswitch: bool,
     pub allow_lan: bool,
+    /// A downloaded Xray version the daemon installed with `InstallCore`.
+    /// `None` runs the Xray bundled with the package.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub core: Option<String>,
+}
+
+/// Install a downloaded Xray release as a root-owned copy the daemon may run.
+///
+/// `archive` is the release `.zip` in the owner's data directory. The daemon
+/// only reads it, and only accepts it when it matches the digest GitHub
+/// publishes for `tag`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoreInstallRequest {
+    pub tag: String,
+    pub archive: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoreRequest {
+    pub tag: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,6 +80,8 @@ pub struct ProxyPingRequest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dns_probe_urls: Vec<String>,
     pub timeout_ms: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub core: Option<String>,
 }
 
 impl ProxyPingRequest {
@@ -110,6 +134,8 @@ pub enum DaemonCommand {
     ProxyPing(ProxyPingRequest),
     LogTail,
     ClearLog,
+    InstallCore(CoreInstallRequest),
+    RemoveCore(CoreRequest),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -172,6 +198,7 @@ pub enum DaemonErrorCode {
     XrayStartFailed,
     SplitUnavailable,
     PingFailed,
+    CoreInstallFailed,
     Internal,
 }
 
@@ -208,10 +235,47 @@ pub fn validate_request(request: &RequestEnvelope) -> Result<(), DaemonErrorCode
         DaemonCommand::UpdateSplit(applications) => {
             validate_applications(&applications.applications)?
         }
+        DaemonCommand::InstallCore(install) => validate_core_install_request(install)?,
+        DaemonCommand::RemoveCore(core) => validate_core_tag(&core.tag)?,
         DaemonCommand::Status
         | DaemonCommand::Disconnect
         | DaemonCommand::LogTail
         | DaemonCommand::ClearLog => {}
+    }
+    Ok(())
+}
+
+/// A core tag names a directory under the daemon's core store, so it is a
+/// bare version: it starts with a digit (no `v`, no `.`), and holds nothing
+/// that could leave that directory.
+pub fn valid_core_tag(tag: &str) -> bool {
+    tag.len() <= MAX_CORE_TAG_BYTES
+        && tag.as_bytes().first().is_some_and(u8::is_ascii_digit)
+        && tag
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'+' | b'_'))
+        && !tag.contains("..")
+}
+
+fn validate_core_tag(tag: &str) -> Result<(), DaemonErrorCode> {
+    if valid_core_tag(tag) {
+        Ok(())
+    } else {
+        Err(DaemonErrorCode::InvalidRequest)
+    }
+}
+
+fn validate_optional_core(core: &Option<String>) -> Result<(), DaemonErrorCode> {
+    core.as_deref().map_or(Ok(()), validate_core_tag)
+}
+
+pub fn validate_core_install_request(request: &CoreInstallRequest) -> Result<(), DaemonErrorCode> {
+    validate_core_tag(&request.tag)?;
+    if !request.archive.starts_with('/')
+        || request.archive.len() > MAX_CORE_ARCHIVE_PATH_BYTES
+        || request.archive.contains('\0')
+    {
+        return Err(DaemonErrorCode::InvalidRequest);
     }
     Ok(())
 }
@@ -248,7 +312,7 @@ pub fn validate_connect_request(request: &ConnectRequest) -> Result<(), DaemonEr
     {
         return Err(DaemonErrorCode::InvalidRequest);
     }
-    Ok(())
+    validate_optional_core(&request.core)
 }
 
 pub fn validate_tcp_ping_request(request: &TcpPingRequest) -> Result<(), DaemonErrorCode> {
@@ -282,7 +346,7 @@ pub fn validate_proxy_ping_request(request: &ProxyPingRequest) -> Result<(), Dae
     {
         return Err(DaemonErrorCode::InvalidRequest);
     }
-    Ok(())
+    validate_optional_core(&request.core)
 }
 
 pub fn encode_frame<T: Serialize>(value: &T) -> Result<Vec<u8>, DaemonErrorCode> {
@@ -335,9 +399,10 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
     use super::{
-        decode_response_frame, operation_id_of_rejected_request, validate_connect_request,
-        validate_proxy_ping_request, validate_tcp_ping_request, ConnectRequest, ConnectionMode,
-        ConnectionPhase, DaemonCommand, DaemonErrorCode, ProxyPingRequest, RequestEnvelope,
+        decode_response_frame, operation_id_of_rejected_request, valid_core_tag,
+        validate_connect_request, validate_core_install_request, validate_proxy_ping_request,
+        validate_tcp_ping_request, ConnectRequest, ConnectionMode, ConnectionPhase,
+        CoreInstallRequest, DaemonCommand, DaemonErrorCode, ProxyPingRequest, RequestEnvelope,
         TcpPingRequest, MAX_PING_TIMEOUT_MS, PROTOCOL_VERSION,
     };
 
@@ -355,6 +420,7 @@ mod tests {
             excluded_apps: vec!["cs2".into()],
             killswitch: true,
             allow_lan: false,
+            core: None,
         }
     }
 
@@ -380,6 +446,65 @@ mod tests {
             validate_connect_request(&request),
             Err(DaemonErrorCode::InvalidRequest)
         );
+    }
+
+    #[test]
+    fn core_tags_are_bare_versions_that_stay_in_the_store() {
+        for ok in ["26.10.21", "26.7.28", "1.8.4+build_2", "25.1.0-beta.1"] {
+            assert!(valid_core_tag(ok), "{ok} should be valid");
+        }
+        for bad in [
+            "",
+            "v26.10.21",
+            ".",
+            "..",
+            "1/..",
+            "1..2",
+            "a/b",
+            "/1",
+            "1\\b",
+            "x",
+        ] {
+            assert!(!valid_core_tag(bad), "{bad:?} should be rejected");
+        }
+        assert!(!valid_core_tag(&"1".repeat(65)));
+
+        let mut request = valid_connect();
+        request.core = Some("26.10.21".into());
+        assert_eq!(validate_connect_request(&request), Ok(()));
+        request.core = Some("../../usr/bin".into());
+        assert_eq!(
+            validate_connect_request(&request),
+            Err(DaemonErrorCode::InvalidRequest)
+        );
+    }
+
+    #[test]
+    fn core_install_archive_is_an_absolute_path() {
+        let request = CoreInstallRequest {
+            tag: "26.10.21".into(),
+            archive: "/home/user/.local/share/varmlen/core/versions/xray/26.10.21/xray.zip".into(),
+        };
+        assert_eq!(validate_core_install_request(&request), Ok(()));
+        for archive in ["relative/xray.zip", "/tmp/x\0y", ""] {
+            let request = CoreInstallRequest {
+                archive: archive.into(),
+                ..request.clone()
+            };
+            assert_eq!(
+                validate_core_install_request(&request),
+                Err(DaemonErrorCode::InvalidRequest)
+            );
+        }
+    }
+
+    #[test]
+    fn an_older_client_connect_without_core_runs_the_bundled_xray() {
+        let mut value = serde_json::to_value(valid_connect()).unwrap();
+        assert!(value.get("core").is_none());
+        value.as_object_mut().unwrap().remove("core");
+        let decoded: ConnectRequest = serde_json::from_value(value).unwrap();
+        assert_eq!(decoded.core, None);
     }
 
     #[test]
@@ -423,6 +548,7 @@ mod tests {
             socks_ports: vec![32_000, 32_001],
             dns_probe_urls: vec!["https://9.9.9.9/dns-query".into()],
             timeout_ms: 5_000,
+            core: None,
         };
         assert_eq!(validate_proxy_ping_request(&proxy), Ok(()));
 

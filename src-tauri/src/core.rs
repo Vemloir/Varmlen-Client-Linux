@@ -7,26 +7,28 @@
 //!
 //! Downloads stream chunks + emit `core://progress` events so the UI can render
 //! a real progress bar. xray assets are `.zip`.
+//!
+//! The root daemon never runs these user-writable copies. Activating a
+//! downloaded version hands its release archive to the daemon, which checks it
+//! against GitHub and keeps a root-owned copy; connects then name that version.
 
 use std::path::PathBuf;
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
-/// The stable Xray version this package bundles as its offline fallback. When
-/// an installation still runs an old packaged default, the package upgrade
-/// re-activates the freshly bundled copy instead of a possibly stale cached
-/// one. Every other manually selected version remains untouched and can still
-/// be activated.
-const LEGACY_BUNDLED_XRAY_VERSION: &str = "26.3.27";
+/// Versions earlier packages bundled as their default: 26.3.27 (0.3.0 to
+/// 0.4.1) and the prerelease 26.7.28 the first 0.3.1 assets shipped. The first
+/// launch of a package that bundles a different version moves an installation
+/// still on one of them to the new bundled core. It happens once per bundled
+/// version, so the user can select either of them again afterwards.
+const LEGACY_BUNDLED_XRAY_VERSIONS: &[&str] = &["26.3.27", "26.7.28"];
 
-/// The first 0.3.1 package shipped this prerelease dataplane as its bundled
-/// default. The emergency stable rollback moves installations still running
-/// it back to the bundled stable core; other manually selected versions
-/// remain untouched and can still be activated.
-const SHIPPED_PRERELEASE_XRAY_VERSION: &str = "26.7.28";
+/// Records the bundled version the last migration ran for.
+const SEEDED_BUNDLED_FILE: &str = "bundled-seeded-xray.txt";
 
 /// Which core a request targets. xray is now the sole core: its native tun does
 /// TUN capture, its routing does the per-app/site split + DNS, and its outbound
@@ -155,10 +157,16 @@ fn bundled_core_path(app: &AppHandle, kind: CoreKind) -> Option<PathBuf> {
     candidates.into_iter().find(|path| path.is_file())
 }
 
+/// The bundled binary only changes with the package, so its version is read
+/// once: pings ask for it on every probe.
 fn bundled_core_tag(app: &AppHandle, kind: CoreKind) -> Option<String> {
-    bundled_core_path(app, kind)
-        .and_then(|path| core_version_of(&path))
-        .filter(|tag| valid_tag(tag))
+    static TAG: OnceLock<Option<String>> = OnceLock::new();
+    TAG.get_or_init(|| {
+        bundled_core_path(app, kind)
+            .and_then(|path| core_version_of(&path))
+            .filter(|tag| valid_tag(tag))
+    })
+    .clone()
 }
 
 /// Read a core binary's own version (`xray version` → "26.3.27"), so the seeded
@@ -180,20 +188,32 @@ fn core_version_of(bin: &PathBuf) -> Option<String> {
 /// Ensure the package-pinned core is always represented in the versions menu,
 /// even after the user downloads and activates a newer core. Existing cached
 /// copies are left untouched; the bundled version becomes active only when no
-/// usable active version exists.
+/// usable active version exists, or once after a package upgrade that changed
+/// the bundled version (see `LEGACY_BUNDLED_XRAY_VERSIONS`).
+///
+/// This runs on every `core_info`. The upgrade migration used to run there
+/// too, unguarded, so selecting 26.3.27 or 26.7.28 was reverted the next time
+/// the settings page asked for the version list.
 pub fn seed_bundled_core(app: &AppHandle) {
     let kind = CoreKind::Xray;
     let had_usable_active = binary_path(app, kind).is_ok();
-    let replace_default = matches!(
-        active_tag(app, kind).as_deref(),
-        Some(LEGACY_BUNDLED_XRAY_VERSION) | Some(SHIPPED_PRERELEASE_XRAY_VERSION)
-    );
     let Some(src) = bundled_core_path(app, kind) else {
         return;
     };
-    let Some(tag) = core_version_of(&src).filter(|t| valid_tag(t)) else {
+    let Some(tag) = bundled_core_tag(app, kind) else {
         return;
     };
+    let Ok(dir) = core_dir(app) else {
+        return;
+    };
+    let seeded_file = dir.join(SEEDED_BUNDLED_FILE);
+    let seeded = std::fs::read_to_string(&seeded_file).ok();
+    let first_seed_of_this_bundle = seeded.as_deref().map(str::trim) != Some(tag.as_str());
+    let replace_default = moves_to_new_bundle(
+        seeded.as_deref(),
+        &tag,
+        active_tag(app, kind).as_deref(),
+    );
     let Ok(dest) = version_binary(app, kind, &tag) else {
         return;
     };
@@ -214,6 +234,31 @@ pub fn seed_bundled_core(app: &AppHandle) {
     }
     if !had_usable_active || replace_default {
         let _ = write_active(app, kind, &tag);
+    }
+    if first_seed_of_this_bundle {
+        let _ = std::fs::write(seeded_file, &tag);
+    }
+}
+
+/// Whether this launch moves the active version to the bundled one: only the
+/// first launch of a package bundling `bundled`, and only from an earlier
+/// package's default.
+fn moves_to_new_bundle(seeded: Option<&str>, bundled: &str, active: Option<&str>) -> bool {
+    seeded.map(str::trim) != Some(bundled)
+        && active.is_some_and(|active| {
+            active != bundled && LEGACY_BUNDLED_XRAY_VERSIONS.contains(&active)
+        })
+}
+
+/// The version a connect or probe should ask the daemon for: the active one,
+/// unless it is the bundled Xray the daemon runs by default.
+pub fn daemon_core(app: &AppHandle) -> Option<String> {
+    let kind = CoreKind::Xray;
+    let active = active_tag(app, kind)?;
+    if bundled_core_tag(app, kind).as_deref() == Some(active.as_str()) {
+        None
+    } else {
+        Some(active)
     }
 }
 
@@ -439,35 +484,12 @@ pub async fn list_core_releases(kind: String) -> Result<Vec<CoreRelease>, String
 
 // --- download + install ----------------------------------------------------
 
-/// Translate Rust's target architecture into Xray's release asset naming.
-/// This intentionally covers every Linux architecture published by Xray.
-fn xray_asset_name(arch: &str, little_endian: bool) -> Option<&'static str> {
-    match (arch, little_endian) {
-        ("x86_64", _) => Some("Xray-linux-64.zip"),
-        ("x86", _) => Some("Xray-linux-32.zip"),
-        ("aarch64", _) => Some("Xray-linux-arm64-v8a.zip"),
-        // Rust exposes all 32-bit ARM targets as `arm` at runtime. Varmlen's
-        // supported 32-bit Linux baseline is ARMv7; the build fetcher uses the
-        // full target triple and can additionally bundle v5/v6 assets.
-        ("arm", _) => Some("Xray-linux-arm32-v7a.zip"),
-        ("riscv64", _) => Some("Xray-linux-riscv64.zip"),
-        ("loongarch64", _) => Some("Xray-linux-loong64.zip"),
-        ("powerpc64", true) => Some("Xray-linux-ppc64le.zip"),
-        ("powerpc64", false) => Some("Xray-linux-ppc64.zip"),
-        ("s390x", _) => Some("Xray-linux-s390x.zip"),
-        ("mips", true) | ("mips32r6", true) => Some("Xray-linux-mips32le.zip"),
-        ("mips", false) | ("mips32r6", false) => Some("Xray-linux-mips32.zip"),
-        ("mips64", true) | ("mips64r6", true) => Some("Xray-linux-mips64le.zip"),
-        ("mips64", false) | ("mips64r6", false) => Some("Xray-linux-mips64.zip"),
-        _ => None,
-    }
-}
-
 /// Does the asset name match the OS/arch build we want for this kind?
 fn asset_matches(kind: CoreKind, name: &str) -> bool {
     match kind {
-        CoreKind::Xray => xray_asset_name(std::env::consts::ARCH, cfg!(target_endian = "little"))
-            .is_some_and(|expected| name == expected),
+        CoreKind::Xray => {
+            varmlend::cores::host_xray_asset_name().is_some_and(|expected| name == expected)
+        }
     }
 }
 
@@ -582,7 +604,79 @@ async fn download_and_install(
     std::fs::create_dir_all(dest.parent().unwrap())
         .map_err(|e| format!("create version dir: {e}"))?;
     extract_binary_zip(&buf, &dest, kind.bin_name())?;
+    // The daemon installs its root-owned copy from this archive, since the
+    // digest GitHub publishes is the archive's.
+    std::fs::write(version_archive(app, kind, tag)?, &buf)
+        .map_err(|e| format!("write core archive: {e}"))?;
     Ok(())
+}
+
+/// The release archive kept next to a downloaded binary.
+fn version_archive(app: &AppHandle, kind: CoreKind, tag: &str) -> Result<PathBuf, String> {
+    Ok(version_binary(app, kind, tag)?.with_file_name(format!("{}.zip", kind.slug())))
+}
+
+/// Make sure the daemon holds a root-owned copy of `tag`.
+///
+/// Versions downloaded before the daemon ran downloaded cores have no archive
+/// beside them, so it is fetched once more.
+#[cfg(target_os = "linux")]
+pub async fn ensure_daemon_core(app: &AppHandle, tag: &str) -> Result<(), String> {
+    use crate::daemon_client::{ClientError, DaemonClient};
+    use varmlend::protocol::{CoreInstallRequest, DaemonCommand, DaemonErrorCode};
+
+    let kind = CoreKind::Xray;
+    let tag = strip_v(tag);
+    let archive = version_archive(app, kind, tag)?;
+    if !archive.is_file() {
+        let release = fetch_release_by_tag(kind, tag).await?;
+        download_and_install(app, kind, tag, &release).await?;
+    }
+    let archive = archive
+        .to_str()
+        .ok_or("core archive path is not valid UTF-8")?
+        .to_string();
+    let mut daemon = DaemonClient::connect_or_start_installed()
+        .await
+        .map_err(|error| error.to_string())?;
+    match daemon
+        .request(DaemonCommand::InstallCore(CoreInstallRequest {
+            tag: tag.to_string(),
+            archive,
+        }))
+        .await
+    {
+        Ok(_) => Ok(()),
+        Err(ClientError::Daemon(DaemonErrorCode::InvalidFrame, _))
+        | Err(ClientError::Protocol(DaemonErrorCode::InvalidFrame)) => Err(
+            "the running Varmlen background daemon predates core switching; reboot once to use another Xray version"
+                .into(),
+        ),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+/// Drop the daemon's root-owned copy of `tag`. A daemon that predates
+/// downloaded cores holds none, so its refusal is not an error.
+#[cfg(target_os = "linux")]
+async fn remove_daemon_core(tag: &str) -> Result<(), String> {
+    use crate::daemon_client::{ClientError, DaemonClient};
+    use varmlend::protocol::{CoreRequest, DaemonCommand, DaemonErrorCode};
+
+    let mut daemon = DaemonClient::connect_or_start_installed()
+        .await
+        .map_err(|error| error.to_string())?;
+    match daemon
+        .request(DaemonCommand::RemoveCore(CoreRequest {
+            tag: strip_v(tag).to_string(),
+        }))
+        .await
+    {
+        Ok(_)
+        | Err(ClientError::Daemon(DaemonErrorCode::InvalidFrame, _))
+        | Err(ClientError::Protocol(DaemonErrorCode::InvalidFrame)) => Ok(()),
+        Err(error) => Err(error.to_string()),
+    }
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -715,13 +809,19 @@ pub async fn core_install(
     Ok(tag)
 }
 
-/// Switch the active user-space version for `kind`.
+/// Switch the active version for `kind`. A downloaded version is installed
+/// into the daemon first, so the switch is only recorded once a connect can
+/// actually run it. It takes effect on the next connect.
 #[tauri::command]
 pub async fn core_activate(app: AppHandle, kind: String, tag: String) -> Result<(), String> {
     let kind = CoreKind::parse(&kind)?;
     let bin = version_binary(&app, kind, &tag)?;
     if !bin.exists() {
         return Err(format!("version {tag} isn't downloaded"));
+    }
+    #[cfg(target_os = "linux")]
+    if bundled_core_tag(&app, kind).as_deref() != Some(strip_v(&tag)) {
+        ensure_daemon_core(&app, &tag).await?;
     }
     write_active(&app, kind, &tag)?;
     Ok(())
@@ -736,6 +836,8 @@ pub async fn core_uninstall(app: AppHandle, kind: String, tag: String) -> Result
     if bundled_core_tag(&app, kind).as_deref() == Some(strip_v(&tag)) {
         return Err("the Xray version bundled with Varmlen cannot be removed".into());
     }
+    #[cfg(target_os = "linux")]
+    remove_daemon_core(&tag).await?;
     let was_active = active_tag(&app, kind).as_deref() == Some(strip_v(&tag));
     let dir = versions_dir(&app, kind)?.join(strip_v(&tag));
     if dir.exists() {
@@ -755,46 +857,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn xray_assets_cover_supported_linux_architectures() {
-        assert_eq!(xray_asset_name("x86_64", true), Some("Xray-linux-64.zip"));
-        assert_eq!(xray_asset_name("x86", true), Some("Xray-linux-32.zip"));
-        assert_eq!(
-            xray_asset_name("aarch64", true),
-            Some("Xray-linux-arm64-v8a.zip")
-        );
-        assert_eq!(
-            xray_asset_name("arm", true),
-            Some("Xray-linux-arm32-v7a.zip")
-        );
-        assert_eq!(
-            xray_asset_name("riscv64", true),
-            Some("Xray-linux-riscv64.zip")
-        );
-        assert_eq!(
-            xray_asset_name("loongarch64", true),
-            Some("Xray-linux-loong64.zip")
-        );
-        assert_eq!(
-            xray_asset_name("powerpc64", true),
-            Some("Xray-linux-ppc64le.zip")
-        );
-        assert_eq!(
-            xray_asset_name("powerpc64", false),
-            Some("Xray-linux-ppc64.zip")
-        );
-        assert_eq!(
-            xray_asset_name("mips", true),
-            Some("Xray-linux-mips32le.zip")
-        );
-        assert_eq!(
-            xray_asset_name("mips64", false),
-            Some("Xray-linux-mips64.zip")
-        );
-        assert_eq!(
-            xray_asset_name("s390x", false),
-            Some("Xray-linux-s390x.zip")
-        );
-        assert_eq!(xray_asset_name("unknown", true), None);
+    fn an_old_default_moves_to_the_new_bundle_once_and_can_be_selected_again() {
+        // First launch after upgrading from a package that bundled 26.3.27.
+        assert!(moves_to_new_bundle(None, "26.10.21", Some("26.3.27")));
+        assert!(moves_to_new_bundle(Some("26.3.27\n"), "26.10.21", Some("26.7.28")));
+        // Afterwards the user's choice of either old default stays.
+        assert!(!moves_to_new_bundle(Some("26.10.21"), "26.10.21", Some("26.3.27")));
+        assert!(!moves_to_new_bundle(Some("26.10.21\n"), "26.10.21", Some("26.7.28")));
+        // Other selections are never touched.
+        assert!(!moves_to_new_bundle(None, "26.10.21", Some("26.9.30")));
+        assert!(!moves_to_new_bundle(None, "26.10.21", None));
+        assert!(!moves_to_new_bundle(None, "26.3.27", Some("26.3.27")));
     }
 
     #[test]

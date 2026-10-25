@@ -346,6 +346,7 @@ mod tests {
             excluded_apps: vec!["cs2".into()],
             killswitch,
             allow_lan: false,
+            core: None,
         }
     }
 

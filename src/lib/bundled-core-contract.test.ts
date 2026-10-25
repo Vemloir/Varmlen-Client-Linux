@@ -11,16 +11,27 @@ describe("Linux bundled Xray fallback", () => {
     const fetchScript = read("../../scripts/fetch-xray.sh");
     const settings = read("../routes/settings/+page.svelte");
 
-    expect(fetchScript).toContain('VERSION="26.3.27"');
+    expect(fetchScript).toContain('VERSION="26.10.21"');
     expect(fetchScript).toContain('"$VERSION:$asset"');
     expect(core).toContain('PathBuf::from("/usr/libexec/varmlen/xray")');
     expect(core).toContain("let had_usable_active = binary_path(app, kind).is_ok()");
-    expect(core).toContain("LEGACY_BUNDLED_XRAY_VERSION");
+    expect(core).toContain("LEGACY_BUNDLED_XRAY_VERSIONS");
+    expect(core).toContain("moves_to_new_bundle(");
     expect(core).toContain("if !dest.is_file()");
     expect(core).toContain("seed_bundled_core(&app)");
     expect(core).toContain("bundled: bundled.as_deref() == Some(tag.as_str())");
     expect(core).toContain("the Xray version bundled with Varmlen cannot be removed");
     expect(settings).toContain('t("core.bundled")');
     expect(settings).toContain("{#if !v.bundled}");
+  });
+
+  it("is run by the daemon only as a verified root-owned copy", () => {
+    const core = read("../../src-tauri/src/core.rs");
+    const vpn = read("../../src-tauri/src/vpn.rs");
+
+    expect(core).toContain("DaemonCommand::InstallCore(CoreInstallRequest");
+    expect(core).toContain("ensure_daemon_core(&app, &tag).await?");
+    expect(vpn).toContain("crate::core::ensure_daemon_core(&app, tag).await?");
+    expect(vpn).toContain("let core = crate::core::daemon_core(&app);");
   });
 });

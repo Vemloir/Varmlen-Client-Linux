@@ -4,6 +4,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
+use crate::cores::CoreStore;
 use crate::lifecycle::LifecycleManager;
 use crate::log_store::{LogStore, MAX_LOG_TAIL_BYTES};
 use crate::protocol::{ConnectionPhase, DaemonCommand, DaemonError, DaemonErrorCode, DaemonState};
@@ -16,6 +17,8 @@ pub struct SystemController {
     manager: Mutex<LifecycleManager<SystemLifecycleBackend>>,
     state_path: PathBuf,
     log_store: Arc<Mutex<LogStore>>,
+    /// Installs and removals of downloaded cores run one at a time.
+    cores: Mutex<CoreStore>,
 }
 
 impl SystemController {
@@ -27,6 +30,7 @@ impl SystemController {
             manager: Mutex::new(LifecycleManager::new(backend, phase)),
             state_path,
             log_store,
+            cores: Mutex::new(CoreStore::installed(owner_uid)),
         }
     }
 
@@ -98,6 +102,20 @@ impl CommandHandler for SystemController {
                 state.rtt_ms = Some(rtt);
                 return Ok(state);
             }
+            DaemonCommand::InstallCore(request) => {
+                self.cores.lock().await.install(&request).await?;
+                return Ok(self.manager.lock().await.state().clone());
+            }
+            DaemonCommand::RemoveCore(request) => {
+                let cores = self.cores.lock().await;
+                let manager = self.manager.lock().await;
+                let running = manager
+                    .backend()
+                    .xray_identity()
+                    .map(|identity| identity.executable);
+                cores.remove(&request.tag, running.as_deref())?;
+                return Ok(manager.state().clone());
+            }
             _ => {}
         }
 
@@ -112,7 +130,9 @@ impl CommandHandler for SystemController {
             DaemonCommand::TcpPing(_)
             | DaemonCommand::ProxyPing(_)
             | DaemonCommand::LogTail
-            | DaemonCommand::ClearLog => unreachable!(),
+            | DaemonCommand::ClearLog
+            | DaemonCommand::InstallCore(_)
+            | DaemonCommand::RemoveCore(_) => unreachable!(),
         };
         self.persist(&mut manager)?;
         result

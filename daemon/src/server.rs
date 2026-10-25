@@ -123,7 +123,9 @@ impl CommandHandler for SnapshotHandler {
             | DaemonCommand::TcpPing(_)
             | DaemonCommand::ProxyPing(_)
             | DaemonCommand::LogTail
-            | DaemonCommand::ClearLog => Err(DaemonError::new(
+            | DaemonCommand::ClearLog
+            | DaemonCommand::InstallCore(_)
+            | DaemonCommand::RemoveCore(_) => Err(DaemonError::new(
                 DaemonErrorCode::Internal,
                 "VPN lifecycle controller is unavailable",
             )),

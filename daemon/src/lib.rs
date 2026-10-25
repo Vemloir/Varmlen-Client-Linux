@@ -1,4 +1,5 @@
 pub mod controller;
+pub mod cores;
 pub mod direct_dns;
 pub mod dns;
 pub mod lifecycle;

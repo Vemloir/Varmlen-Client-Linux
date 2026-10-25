@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- Switching the Xray core works. Two things stood in the way. Every time the
+  settings page listed the versions, the upgrade migration from 0.3.1 ran again
+  and put the bundled core back, so 26.3.27 and 26.7.28 could not be selected;
+  it now runs once per bundled version. And the root daemon only ever ran the
+  bundled `/usr/libexec/varmlen/xray`, so a version selected in Settings was
+  never the one connecting. Selecting a downloaded version now hands its release
+  archive to the daemon, which checks it against the SHA-256 that GitHub
+  publishes for that release (the `.dgst` file, or the release API) and keeps a
+  root-owned copy under `/var/lib/varmlen/cores/<version>`. Connects and
+  latency probes run that copy. The user-writable download is never executed as
+  root. A live tunnel is reconnected onto the new core.
+- Bundle stable Xray 26.10.21, the first stable release after 26.3.27.
+  Installations still on 26.3.27 or 26.7.28 move to it once on upgrade, and
+  either version can be selected again afterwards.
+
 ## 0.4.1
 
 - Per-app split no longer cuts Xray off from the network. The split laid its
