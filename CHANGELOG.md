@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Settings no longer reports "Couldn't check for updates" after a few visits.
+  Every visit asked GitHub's API for the latest Xray, which answers 60
+  anonymous requests an hour; the answer is now kept for ten minutes, and the
+  last one known stands in when GitHub refuses.
 - The loopback SOCKS listeners the daemon opens to measure a location or to
   verify a profile before connecting take a password. They were open to every
   local process -- other users of the machine included -- for as long as a

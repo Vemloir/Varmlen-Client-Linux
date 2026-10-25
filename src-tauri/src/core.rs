@@ -209,11 +209,8 @@ pub fn seed_bundled_core(app: &AppHandle) {
     let seeded_file = dir.join(SEEDED_BUNDLED_FILE);
     let seeded = std::fs::read_to_string(&seeded_file).ok();
     let first_seed_of_this_bundle = seeded.as_deref().map(str::trim) != Some(tag.as_str());
-    let replace_default = moves_to_new_bundle(
-        seeded.as_deref(),
-        &tag,
-        active_tag(app, kind).as_deref(),
-    );
+    let replace_default =
+        moves_to_new_bundle(seeded.as_deref(), &tag, active_tag(app, kind).as_deref());
     let Ok(dest) = version_binary(app, kind, &tag) else {
         return;
     };
@@ -418,9 +415,35 @@ fn version_from_tag(release: &serde_json::Value) -> Option<String> {
         .map(|t| strip_v(t).to_string())
 }
 
+/// GitHub answers 60 anonymous API requests an hour per address, and the
+/// settings page asks for the latest version every time it opens. The answer
+/// is kept for ten minutes, and the last one known stands in when GitHub
+/// refuses, so the page does not report a failed check for a rate limit.
 async fn latest_version(kind: CoreKind) -> Result<String, String> {
-    let release = fetch_latest_release(kind).await?;
-    version_from_tag(&release).ok_or_else(|| "no tag_name in release".to_string())
+    use std::sync::Mutex;
+    const FRESH_FOR: Duration = Duration::from_secs(10 * 60);
+    static LATEST: Mutex<Option<(Instant, String)>> = Mutex::new(None);
+
+    let cached = LATEST.lock().ok().and_then(|cached| cached.clone());
+    if let Some((at, tag)) = &cached {
+        if at.elapsed() < FRESH_FOR {
+            return Ok(tag.clone());
+        }
+    }
+    let fetched = async {
+        let release = fetch_latest_release(kind).await?;
+        version_from_tag(&release).ok_or_else(|| "no tag_name in release".to_string())
+    }
+    .await;
+    match fetched {
+        Ok(tag) => {
+            if let Ok(mut latest) = LATEST.lock() {
+                *latest = Some((Instant::now(), tag.clone()));
+            }
+            Ok(tag)
+        }
+        Err(error) => cached.map(|(_, tag)| tag).ok_or(error),
+    }
 }
 
 #[derive(Serialize)]
@@ -866,10 +889,22 @@ mod tests {
     fn an_old_default_moves_to_the_new_bundle_once_and_can_be_selected_again() {
         // First launch after upgrading from a package that bundled 26.3.27.
         assert!(moves_to_new_bundle(None, "26.10.21", Some("26.3.27")));
-        assert!(moves_to_new_bundle(Some("26.3.27\n"), "26.10.21", Some("26.7.28")));
+        assert!(moves_to_new_bundle(
+            Some("26.3.27\n"),
+            "26.10.21",
+            Some("26.7.28")
+        ));
         // Afterwards the user's choice of either old default stays.
-        assert!(!moves_to_new_bundle(Some("26.10.21"), "26.10.21", Some("26.3.27")));
-        assert!(!moves_to_new_bundle(Some("26.10.21\n"), "26.10.21", Some("26.7.28")));
+        assert!(!moves_to_new_bundle(
+            Some("26.10.21"),
+            "26.10.21",
+            Some("26.3.27")
+        ));
+        assert!(!moves_to_new_bundle(
+            Some("26.10.21\n"),
+            "26.10.21",
+            Some("26.7.28")
+        ));
         // Other selections are never touched.
         assert!(!moves_to_new_bundle(None, "26.10.21", Some("26.9.30")));
         assert!(!moves_to_new_bundle(None, "26.10.21", None));
