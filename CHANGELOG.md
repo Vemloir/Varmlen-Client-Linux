@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The loopback SOCKS listeners the daemon opens to measure a location or to
+  verify a profile before connecting take a password. They were open to every
+  local process -- other users of the machine included -- for as long as a
+  probe ran, and reached the VPN server through them. Each probe now gets a
+  fresh random password that only the daemon knows.
 - Switching the Xray core works. Two things stood in the way. Every time the
   settings page listed the versions, the upgrade migration from 0.3.1 ran again
   and put the bundled core back, so 26.3.27 and 26.7.28 could not be selected;

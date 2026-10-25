@@ -193,13 +193,46 @@ async fn probe_dns_through_proxy(
     })
 }
 
+/// The password on the loopback SOCKS listeners the daemon starts for a probe.
+///
+/// A listener on 127.0.0.1 serves every local process -- other users on a
+/// shared machine included -- for as long as the probe runs, and through it
+/// reaches the VPN server. Each probe's listeners get a fresh random password
+/// that only the daemon knows.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ProbeCredential {
+    user: String,
+    pass: String,
+}
+
+impl ProbeCredential {
+    fn fresh() -> Result<Self, DaemonError> {
+        let mut bytes = [0u8; 24];
+        std::io::Read::read_exact(
+            &mut fs::File::open("/dev/urandom").map_err(internal_io("open /dev/urandom"))?,
+            &mut bytes,
+        )
+        .map_err(internal_io("read /dev/urandom"))?;
+        let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        Ok(Self {
+            user: hex[..16].to_string(),
+            pass: hex[16..].to_string(),
+        })
+    }
+
+    fn proxy_url(&self, port: u16) -> String {
+        format!("socks5h://{}:{}@127.0.0.1:{port}", self.user, self.pass)
+    }
+}
+
 fn proxy_probe_client(
     port: u16,
+    credential: &ProbeCredential,
     timeout_duration: Duration,
 ) -> Result<reqwest::Client, DaemonError> {
     reqwest::Client::builder()
         .proxy(
-            reqwest::Proxy::all(format!("socks5h://127.0.0.1:{port}")).map_err(|error| {
+            reqwest::Proxy::all(credential.proxy_url(port)).map_err(|error| {
                 DaemonError::new(
                     DaemonErrorCode::PingFailed,
                     format!("could not configure ping proxy: {error}"),
@@ -217,18 +250,23 @@ fn proxy_probe_client(
         })
 }
 
-async fn probe_http_port(port: u16, timeout_duration: Duration) -> Result<u32, DaemonError> {
-    let client = proxy_probe_client(port, timeout_duration)?;
+async fn probe_http_port(
+    port: u16,
+    credential: &ProbeCredential,
+    timeout_duration: Duration,
+) -> Result<u32, DaemonError> {
+    let client = proxy_probe_client(port, credential, timeout_duration)?;
     probe_http_through_proxy(&client).await
 }
 
 async fn probe_proxy_port(
     port: u16,
+    credential: &ProbeCredential,
     timeout_duration: Duration,
     dns_probe_urls: &[String],
     require_dns: bool,
 ) -> Result<u32, DaemonError> {
-    let client = proxy_probe_client(port, timeout_duration)?;
+    let client = proxy_probe_client(port, credential, timeout_duration)?;
     if dns_probe_urls.is_empty() || !require_dns {
         return probe_http_through_proxy(&client).await;
     }
@@ -389,7 +427,8 @@ pub async fn run_proxy_ping(
             .map(|listener| listener.local_addr().map(|address| address.port()))
             .collect::<Result<Vec<_>, _>>()
             .map_err(internal_io("read reserved ping port"))?;
-        let config = validation_config_with_ports(&request.xray_config, &ports)?;
+        let credential = ProbeCredential::fresh()?;
+        let config = validation_config_with_ports(&request.xray_config, &ports, &credential)?;
         validate_ping_xray_document(&config, &ports)?;
         let config_path = runtime_dir.join(format!(
             "ping-{}-{}-{sequence}-{attempt}.json",
@@ -491,12 +530,9 @@ pub async fn run_proxy_ping(
                 sleep(Duration::from_millis(PROBE_RETRY_DELAY_MS)).await;
             }
             let require_dns = attempt == 0;
-            match first_success_with_reason(
-                ports
-                    .iter()
-                    .copied()
-                    .map(|port| probe_proxy_port(port, budget, &dns_probe_urls, require_dns)),
-            )
+            match first_success_with_reason(ports.iter().copied().map(|port| {
+                probe_proxy_port(port, &credential, budget, &dns_probe_urls, require_dns)
+            }))
             .await
             {
                 Ok(value) => {
@@ -721,7 +757,8 @@ impl SystemLifecycleBackend {
                         .map_err(internal_io("read validation port"))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            let config = validation_config_with_ports(config, &ports)?;
+            let credential = ProbeCredential::fresh()?;
+            let config = validation_config_with_ports(config, &ports, &credential)?;
             validate_ping_xray_document(&config, &ports)?;
             self.write_private(&self.validation_path(), &config)?;
             self.run_xray_validation(xray, &self.validation_path())
@@ -743,55 +780,54 @@ impl SystemLifecycleBackend {
                         format!("could not start Xray egress validation: {error}"),
                     )
                 })?;
-            let result = timeout(Duration::from_secs(12), async {
-                loop {
-                    if child.try_wait().is_ok_and(|status| status.is_some()) {
-                        return Err(DaemonError::new(
+            let result =
+                timeout(Duration::from_secs(12), async {
+                    loop {
+                        if child.try_wait().is_ok_and(|status| status.is_some()) {
+                            return Err(DaemonError::new(
+                                DaemonErrorCode::XrayValidationFailed,
+                                "validation Xray exited before its proxy became ready",
+                            ));
+                        }
+                        let readiness = ports.iter().copied().map(|port| async move {
+                            timeout(
+                                Duration::from_millis(100),
+                                tokio::net::TcpStream::connect(("127.0.0.1", port)),
+                            )
+                            .await
+                            .is_ok_and(|result| result.is_ok())
+                        });
+                        if futures_util::future::join_all(readiness)
+                            .await
+                            .into_iter()
+                            .all(|ready| ready)
+                        {
+                            break;
+                        }
+                        sleep(Duration::from_millis(50)).await;
+                    }
+                    let results =
+                        futures_util::future::join_all(ports.iter().copied().map(|port| {
+                            probe_http_port(port, &credential, Duration::from_secs(8))
+                        }))
+                        .await;
+                    if results.iter().all(Result::is_ok) {
+                        Ok(())
+                    } else {
+                        Err(DaemonError::new(
                             DaemonErrorCode::XrayValidationFailed,
-                            "validation Xray exited before its proxy became ready",
-                        ));
+                            "candidate's effective route has no verified remote egress",
+                        ))
                     }
-                    let readiness = ports.iter().copied().map(|port| async move {
-                        timeout(
-                            Duration::from_millis(100),
-                            tokio::net::TcpStream::connect(("127.0.0.1", port)),
-                        )
-                        .await
-                        .is_ok_and(|result| result.is_ok())
-                    });
-                    if futures_util::future::join_all(readiness)
-                        .await
-                        .into_iter()
-                        .all(|ready| ready)
-                    {
-                        break;
-                    }
-                    sleep(Duration::from_millis(50)).await;
-                }
-                let results = futures_util::future::join_all(
-                    ports
-                        .iter()
-                        .copied()
-                        .map(|port| probe_http_port(port, Duration::from_secs(8))),
-                )
-                .await;
-                if results.iter().all(Result::is_ok) {
-                    Ok(())
-                } else {
-                    Err(DaemonError::new(
+                })
+                .await
+                .map_err(|_| {
+                    DaemonError::new(
                         DaemonErrorCode::XrayValidationFailed,
-                        "candidate's effective route has no verified remote egress",
-                    ))
-                }
-            })
-            .await
-            .map_err(|_| {
-                DaemonError::new(
-                    DaemonErrorCode::XrayValidationFailed,
-                    "candidate remote egress validation timed out",
-                )
-            })
-            .and_then(|result| result);
+                        "candidate remote egress validation timed out",
+                    )
+                })
+                .and_then(|result| result);
             let _ = child.kill().await;
             let _ = child.wait().await;
             match result {
@@ -1312,7 +1348,13 @@ fn validation_config_ports(raw: &str) -> Result<Vec<u16>, DaemonError> {
         .collect()
 }
 
-fn validation_config_with_ports(raw: &str, ports: &[u16]) -> Result<String, DaemonError> {
+/// The probe config as the daemon runs it: on the ports it reserved, and
+/// closed to everyone without `credential`.
+fn validation_config_with_ports(
+    raw: &str,
+    ports: &[u16],
+    credential: &ProbeCredential,
+) -> Result<String, DaemonError> {
     if ports.is_empty()
         || ports.len() > MAX_SERVER_IPS
         || ports.iter().any(|port| *port < 1024)
@@ -1341,6 +1383,20 @@ fn validation_config_with_ports(raw: &str, ports: &[u16]) -> Result<String, Daem
         })?;
     for (inbound, port) in inbounds.iter_mut().zip(ports) {
         inbound["port"] = serde_json::json!(port);
+        let settings = inbound
+            .get_mut("settings")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| {
+                DaemonError::new(
+                    DaemonErrorCode::InvalidRequest,
+                    "validation inbound has no settings",
+                )
+            })?;
+        settings.insert("auth".into(), serde_json::json!("password"));
+        settings.insert(
+            "accounts".into(),
+            serde_json::json!([{ "user": credential.user, "pass": credential.pass }]),
+        );
     }
     serde_json::to_string(&document).map_err(|error| {
         DaemonError::new(
@@ -1563,7 +1619,10 @@ pub fn validate_ping_xray_document(raw: &str, socks_ports: &[u16]) -> Result<(),
             || inbound.get("protocol").and_then(Value::as_str) != Some("socks")
             || inbound.get("listen").and_then(Value::as_str) != Some("127.0.0.1")
             || inbound.get("port").and_then(Value::as_u64) != Some((*socks_port).into())
-            || inbound.pointer("/settings/auth").and_then(Value::as_str) != Some("noauth")
+            || !matches!(
+                inbound.pointer("/settings/auth").and_then(Value::as_str),
+                Some("noauth" | "password")
+            )
             || inbound.pointer("/settings/udp").and_then(Value::as_bool) != Some(false)
         {
             return Err(DaemonError::new(
@@ -1816,7 +1875,7 @@ mod tests {
         first_success, first_success_with_reason, probe_failure, tun_devices_already_live,
         validate_dns_probe_response, validate_ping_xray_document, validate_xray_document,
         validation_config_ports, validation_config_with_ports, validation_failure_detail,
-        DNS_PROBE_QUERY, PROXY_PING_URLS,
+        ProbeCredential, DNS_PROBE_QUERY, PROXY_PING_URLS,
     };
     use crate::protocol::{DaemonError, DaemonErrorCode};
 
@@ -1861,11 +1920,32 @@ mod tests {
             validation_config_ports(&original).unwrap(),
             vec![2081, 2082]
         );
-        let rewritten = validation_config_with_ports(&original, &[43123, 43124]).unwrap();
+        let credential = ProbeCredential::fresh().unwrap();
+        let rewritten =
+            validation_config_with_ports(&original, &[43123, 43124], &credential).unwrap();
         let value: serde_json::Value = serde_json::from_str(&rewritten).unwrap();
         assert_eq!(value["inbounds"][0]["port"], 43123);
         assert_eq!(value["inbounds"][1]["port"], 43124);
         assert_eq!(value["inbounds"][0]["listen"], "127.0.0.1");
+        // Other local processes cannot use the listeners the probe opens.
+        for inbound in value["inbounds"].as_array().unwrap() {
+            assert_eq!(inbound["settings"]["auth"], "password");
+            assert_eq!(inbound["settings"]["accounts"][0]["user"], credential.user);
+            assert_eq!(inbound["settings"]["accounts"][0]["pass"], credential.pass);
+        }
+    }
+
+    #[test]
+    fn every_probe_gets_its_own_password() {
+        let first = ProbeCredential::fresh().unwrap();
+        let second = ProbeCredential::fresh().unwrap();
+        assert_ne!(first, second);
+        assert_eq!(first.user.len(), 16);
+        assert_eq!(first.pass.len(), 32);
+        assert_eq!(
+            first.proxy_url(43123),
+            format!("socks5h://{}:{}@127.0.0.1:43123", first.user, first.pass)
+        );
     }
 
     /// A probe outcome that is already decided, shaped like a real probe.
@@ -2064,6 +2144,16 @@ mod tests {
             ]}
         });
         assert!(validate_ping_xray_document(&raw.to_string(), &[32_000]).is_ok());
+
+        // The daemon closes its own listeners with a password before running
+        // them, and validates what it runs.
+        let credential = ProbeCredential::fresh().unwrap();
+        let closed =
+            validation_config_with_ports(&raw.to_string(), &[32_000], &credential).unwrap();
+        assert!(validate_ping_xray_document(&closed, &[32_000]).is_ok());
+        let mut other_auth = raw.clone();
+        other_auth["inbounds"][0]["settings"]["auth"] = json!("token");
+        assert!(validate_ping_xray_document(&other_auth.to_string(), &[32_000]).is_err());
 
         let mut unmarked = raw.clone();
         unmarked["outbounds"][0]["streamSettings"]["sockopt"]["mark"] = json!(0);
