@@ -395,7 +395,7 @@ mod tests {
         let longer = process(
             "wine64",
             "/usr/bin/wine64",
-            &["/usr/bin/wine64", "Z:\\XREPO.exe".into()],
+            &["/usr/bin/wine64", "Z:\\XREPO.exe"],
             "/user.slice/app.slice/app-steam.scope",
         );
         assert!(!matches("REPO.exe", &longer));

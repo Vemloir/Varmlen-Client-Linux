@@ -2,8 +2,6 @@ mod apps;
 mod core;
 #[cfg(target_os = "linux")]
 mod daemon_client;
-#[cfg(target_os = "android")]
-mod mobile_vpn;
 mod split;
 mod storage;
 mod subscription;
@@ -346,10 +344,6 @@ pub fn run() {
     }
 
     // Android VPN bridge (registers the Kotlin VpnPlugin → VpnService).
-    #[cfg(target_os = "android")]
-    {
-        builder = builder.plugin(mobile_vpn::init());
-    }
 
     builder
         .plugin(tauri_plugin_opener::init())
@@ -459,11 +453,7 @@ mod tests {
     }
     #[test]
     fn subscription_ua_choices_are_bounded_and_platform_specific() {
-        for (choice, brand) in [
-            ("varmlen", "Varmlen"),
-            ("happ", "Happ"),
-            ("incy", "INCY"),
-        ] {
+        for (choice, brand) in [("varmlen", "Varmlen"), ("happ", "Happ"), ("incy", "INCY")] {
             let (ua, os) = subscription_headers(Some(choice)).expect("known UA");
             assert_eq!(
                 ua,

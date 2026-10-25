@@ -120,7 +120,12 @@ const LOCAL_THROWS: [&str; 7] = [
 
 /// `ip` invocations that lay the split's own table and rule, in order.
 pub fn routing_setup_commands(route: &PhysicalRoute) -> Vec<Vec<String>> {
-    let owned = |items: &[&str]| items.iter().map(|item| item.to_string()).collect::<Vec<_>>();
+    let owned = |items: &[&str]| {
+        items
+            .iter()
+            .map(|item| item.to_string())
+            .collect::<Vec<_>>()
+    };
     let mut default = vec!["route", "replace", "default"];
     if let Some(gateway) = route.gateway.as_deref() {
         default.extend(["via", gateway]);
@@ -128,7 +133,14 @@ pub fn routing_setup_commands(route: &PhysicalRoute) -> Vec<Vec<String>> {
     default.extend(["dev", &route.interface, "table", SPLIT_TABLE]);
     let mut commands = vec![owned(&default)];
     for network in LOCAL_THROWS {
-        commands.push(owned(&["route", "replace", "throw", network, "table", SPLIT_TABLE]));
+        commands.push(owned(&[
+            "route",
+            "replace",
+            "throw",
+            network,
+            "table",
+            SPLIT_TABLE,
+        ]));
     }
     commands.push(owned(&[
         "rule",
@@ -146,7 +158,12 @@ pub fn routing_setup_commands(route: &PhysicalRoute) -> Vec<Vec<String>> {
 /// `ip` invocations that remove only what the split laid. Nothing here names
 /// table 100 or a rule the helper owns.
 pub fn routing_teardown_commands() -> Vec<Vec<String>> {
-    let owned = |items: &[&str]| items.iter().map(|item| item.to_string()).collect::<Vec<_>>();
+    let owned = |items: &[&str]| {
+        items
+            .iter()
+            .map(|item| item.to_string())
+            .collect::<Vec<_>>()
+    };
     vec![
         owned(&[
             "rule",
@@ -216,12 +233,15 @@ async fn run_ip<S: AsRef<std::ffi::OsStr>>(arguments: &[S]) -> Result<(), SplitE
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_default_route, render_split_rules, routing_setup_commands,
-        routing_teardown_commands, PhysicalRoute,
+        parse_default_route, render_split_rules, routing_setup_commands, routing_teardown_commands,
+        PhysicalRoute,
     };
 
     fn joined(commands: Vec<Vec<String>>) -> Vec<String> {
-        commands.into_iter().map(|command| command.join(" ")).collect()
+        commands
+            .into_iter()
+            .map(|command| command.join(" "))
+            .collect()
     }
 
     #[test]
@@ -237,8 +257,9 @@ mod tests {
         .concat();
         // Table 100 carries Xray's own direct dials; flushing it while the
         // tunnel is up loops them back into the tun.
-        assert!(all.iter().all(|command| !command.contains("table 100")
-            && !command.contains("lookup 100")));
+        assert!(all
+            .iter()
+            .all(|command| !command.contains("table 100") && !command.contains("lookup 100")));
         assert!(all.contains(&"route flush table 102".to_string()));
         assert!(all.contains(&"rule del priority 100 fwmark 0x2025 lookup 102".to_string()));
     }
@@ -252,7 +273,10 @@ mod tests {
         let setup = joined(routing_setup_commands(&route));
         assert_eq!(setup[0], "route replace default dev wwan0 table 102");
         assert!(setup.contains(&"route replace throw 192.168.0.0/16 table 102".to_string()));
-        assert_eq!(setup.last().unwrap(), "rule add priority 100 fwmark 0x2025 lookup 102");
+        assert_eq!(
+            setup.last().unwrap(),
+            "rule add priority 100 fwmark 0x2025 lookup 102"
+        );
     }
 
     #[test]

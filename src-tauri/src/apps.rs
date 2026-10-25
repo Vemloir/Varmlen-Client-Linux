@@ -412,15 +412,10 @@ pub async fn pick_file() -> Option<String> {
     None
 }
 
-/// Installed apps for the split-tunnel picker. Desktop: parsed `.desktop`
-/// entries (id = binary name). Android: the launchable packages from
-/// PackageManager (id = package name).
+/// Installed apps for the split-tunnel picker: parsed `.desktop` entries
+/// (id = binary name).
 #[tauri::command]
 pub async fn list_installed_apps(app: tauri::AppHandle) -> Vec<InstalledApp> {
-    #[cfg(target_os = "android")]
-    {
-        return crate::mobile_vpn::list_apps(&app).unwrap_or_default();
-    }
     #[cfg(not(target_os = "android"))]
     {
         let _ = &app;

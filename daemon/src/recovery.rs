@@ -122,7 +122,9 @@ fn route_resources(rules_text: &str, routes_text: &str) -> BTreeSet<Resource> {
         .lines()
         .partition(|line| line.contains(&split_table));
     if !split_rules.is_empty() {
-        resources.insert(Resource::RouteTable(crate::split::routing::SPLIT_TABLE.into()));
+        resources.insert(Resource::RouteTable(
+            crate::split::routing::SPLIT_TABLE.into(),
+        ));
     }
     let helper_rules = helper_rules.join("\n");
     if helper_rules.contains("0x2024")
@@ -388,7 +390,10 @@ mod tests {
     #[test]
     fn the_split_table_is_recovered_on_its_own() {
         let resources = route_resources("100: from all fwmark 0x2025 lookup 102", "");
-        assert_eq!(resources, BTreeSet::from([Resource::RouteTable("102".into())]));
+        assert_eq!(
+            resources,
+            BTreeSet::from([Resource::RouteTable("102".into())])
+        );
         let resources = route_resources(
             "100: from all fwmark 0x2025 lookup 102\n32765: from all fwmark 0x2025 lookup 100",
             "",

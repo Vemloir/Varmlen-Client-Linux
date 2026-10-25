@@ -24,17 +24,6 @@ pub struct HelperResponse {
 }
 
 impl HelperResponse {
-    #[cfg(target_os = "android")]
-    fn connected(pid: u32) -> Self {
-        Self {
-            ok: true,
-            state: "connected".into(),
-            pid: Some(pid),
-            error: None,
-            rtt_ms: None,
-        }
-    }
-
     fn disconnected() -> Self {
         Self {
             ok: true,
@@ -103,6 +92,8 @@ async fn resolve_server_ips(server: &VlessServer) -> Result<Vec<std::net::IpAddr
     Ok(unique.into_iter().collect())
 }
 
+// A Tauri command's arguments are the page's call; they stay flat.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn vpn_connect(
     app: tauri::AppHandle,
@@ -118,31 +109,6 @@ pub async fn vpn_connect(
     // The interface MTU is the user's, clamped to what an interface can carry.
     let mtu = crate::xray::tun_mtu(mtu);
     validate_server(&server)?;
-
-    #[cfg(target_os = "android")]
-    {
-        let _ = killswitch;
-        let xray_config = serde_json::to_string(&build_xray_config(
-            &server,
-            &split,
-            &mode,
-            TunMode::Tun2socks,
-            allow_lan,
-            &level,
-            mtu,
-        ))
-        .map_err(|error| error.to_string())?;
-        let applications_are_allowlist = split.apps_selective();
-        crate::mobile_vpn::connect(
-            &app,
-            xray_config,
-            crate::xray::XRAY_SOCKS_PORT,
-            split.apps.clone(),
-            applications_are_allowlist,
-            level,
-        )?;
-        return Ok(HelperResponse::connected(0));
-    }
 
     #[cfg(target_os = "linux")]
     {
@@ -197,7 +163,7 @@ pub async fn vpn_connect(
         Ok(response_from_daemon(state))
     }
 
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    #[cfg(not(target_os = "linux"))]
     {
         let _ = (app, server, split, mode, killswitch, allow_lan, level);
         Err("VPN lifecycle is not implemented on this platform".into())
@@ -206,11 +172,6 @@ pub async fn vpn_connect(
 
 #[tauri::command]
 pub async fn vpn_disconnect(app: tauri::AppHandle) -> Result<HelperResponse, String> {
-    #[cfg(target_os = "android")]
-    {
-        crate::mobile_vpn::disconnect(&app)?;
-        return Ok(HelperResponse::disconnected());
-    }
     #[cfg(target_os = "linux")]
     {
         use varmlend::protocol::DaemonCommand;
@@ -226,7 +187,7 @@ pub async fn vpn_disconnect(app: tauri::AppHandle) -> Result<HelperResponse, Str
         let _ = app;
         Ok(response_from_daemon(state))
     }
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    #[cfg(not(target_os = "linux"))]
     {
         let _ = app;
         Ok(HelperResponse::disconnected())
@@ -256,7 +217,9 @@ pub async fn vpn_apply_split(split: SplitInput) -> Result<bool, String> {
             return Ok(false);
         };
         Ok(daemon
-            .request(DaemonCommand::UpdateSplit(ApplicationsRequest { applications }))
+            .request(DaemonCommand::UpdateSplit(ApplicationsRequest {
+                applications,
+            }))
             .await
             .is_ok())
     }
@@ -269,14 +232,6 @@ pub async fn vpn_apply_split(split: SplitInput) -> Result<bool, String> {
 
 #[tauri::command]
 pub async fn vpn_status(app: tauri::AppHandle) -> Result<HelperResponse, String> {
-    #[cfg(target_os = "android")]
-    {
-        return Ok(if crate::mobile_vpn::is_running(&app) {
-            HelperResponse::connected(0)
-        } else {
-            HelperResponse::disconnected()
-        });
-    }
     #[cfg(target_os = "linux")]
     {
         use varmlend::protocol::DaemonCommand;
@@ -291,7 +246,7 @@ pub async fn vpn_status(app: tauri::AppHandle) -> Result<HelperResponse, String>
         let _ = app;
         Ok(response_from_daemon(state))
     }
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    #[cfg(not(target_os = "linux"))]
     {
         let _ = app;
         Ok(HelperResponse::disconnected())
@@ -300,10 +255,6 @@ pub async fn vpn_status(app: tauri::AppHandle) -> Result<HelperResponse, String>
 
 #[tauri::command]
 pub async fn vpn_log(app: tauri::AppHandle) -> Result<String, String> {
-    #[cfg(target_os = "android")]
-    {
-        return crate::mobile_vpn::read_log(&app);
-    }
     #[cfg(target_os = "linux")]
     {
         use varmlend::protocol::DaemonCommand;
@@ -318,7 +269,7 @@ pub async fn vpn_log(app: tauri::AppHandle) -> Result<String, String> {
             .map_err(|error| error.to_string())?;
         Ok(state.log_tail.unwrap_or_default())
     }
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    #[cfg(not(target_os = "linux"))]
     {
         let _ = app;
         Ok(String::new())
@@ -327,10 +278,6 @@ pub async fn vpn_log(app: tauri::AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn clear_vpn_log(app: tauri::AppHandle) -> Result<(), String> {
-    #[cfg(target_os = "android")]
-    {
-        return crate::mobile_vpn::clear_log(&app);
-    }
     #[cfg(target_os = "linux")]
     {
         use varmlend::protocol::DaemonCommand;
@@ -345,7 +292,7 @@ pub async fn clear_vpn_log(app: tauri::AppHandle) -> Result<(), String> {
             .map(|_| ())
             .map_err(|error| error.to_string())
     }
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    #[cfg(not(target_os = "linux"))]
     {
         let _ = app;
         Ok(())
@@ -354,10 +301,6 @@ pub async fn clear_vpn_log(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn read_clipboard(app: tauri::AppHandle) -> Result<String, String> {
-    #[cfg(target_os = "android")]
-    {
-        return crate::mobile_vpn::read_clipboard(&app);
-    }
     #[cfg(not(target_os = "android"))]
     {
         let _ = app;
@@ -367,10 +310,6 @@ pub async fn read_clipboard(app: tauri::AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn set_status_bar(app: tauri::AppHandle, light: bool) -> Result<(), String> {
-    #[cfg(target_os = "android")]
-    {
-        return crate::mobile_vpn::set_bar_style(&app, light);
-    }
     #[cfg(not(target_os = "android"))]
     {
         let _ = (app, light);
@@ -380,10 +319,6 @@ pub async fn set_status_bar(app: tauri::AppHandle, light: bool) -> Result<(), St
 
 #[tauri::command]
 pub async fn notifications_enabled(app: tauri::AppHandle) -> bool {
-    #[cfg(target_os = "android")]
-    {
-        return crate::mobile_vpn::notifications_enabled(&app).unwrap_or(false);
-    }
     #[cfg(not(target_os = "android"))]
     {
         let _ = app;
@@ -393,10 +328,6 @@ pub async fn notifications_enabled(app: tauri::AppHandle) -> bool {
 
 #[tauri::command]
 pub async fn open_notification_settings(app: tauri::AppHandle) -> Result<(), String> {
-    #[cfg(target_os = "android")]
-    {
-        return crate::mobile_vpn::open_notification_settings(&app);
-    }
     #[cfg(not(target_os = "android"))]
     {
         let _ = app;
